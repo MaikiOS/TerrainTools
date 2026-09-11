@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<NuGetPackages>$(UserProfile)\.nuget\packages</NuGetPackages>
-		<JotunnProps>$(NuGetPackages)\jotunnlib\2.20.0\build\JotunnLib.props</JotunnProps>
+		<JotunnProps>$(NuGetPackages)\jotunnlib\2.30.0\build\JotunnLib.props</JotunnProps>
 	</PropertyGroup>
 
 	<!--<Import Project="environment.props" Condition="Exists('environment.props')" />-->
@@ -48,8 +48,11 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<Compile Remove="Package\plugins\**" />
+		<Compile Remove="Properties\Resources.Designer.cs" />
 		<EmbeddedResource Remove="Package\plugins\**" />
+		<EmbeddedResource Remove="Properties\Resources.resx" />
 		<None Remove="Package\plugins\**" />
+		<Reference Remove="UnityEngine.ProfilerModule" />
 	</ItemGroup>
 	<ItemGroup>
 		<None Remove="Resources\box.png" />
@@ -97,21 +100,7 @@
 		<EmbeddedResource Include="Resources\undo.png" />
 	</ItemGroup>
 	<ItemGroup>
-		<PackageReference Include="JotunnLib" Version="2.22.0" />
-		<PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-	</ItemGroup>
-	<ItemGroup>
-		<Compile Update="Properties\Resources.Designer.cs">
-			<DesignTime>True</DesignTime>
-			<AutoGen>True</AutoGen>
-			<DependentUpon>Resources.resx</DependentUpon>
-		</Compile>
-	</ItemGroup>
-	<ItemGroup>
-		<EmbeddedResource Update="Properties\Resources.resx">
-			<Generator>ResXFileCodeGenerator</Generator>
-			<LastGenOutput>Resources.Designer.cs</LastGenOutput>
-		</EmbeddedResource>
+		<PackageReference Include="JotunnLib" Version="2.30.0" />
 	</ItemGroup>
 	<ItemGroup>
 		<Folder Include="Publish\" />

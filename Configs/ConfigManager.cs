@@ -19,6 +19,7 @@ namespace TerrainTools.Configs
 
         private static ConfigFile configFile;
         private static BaseUnityPlugin ConfigurationManager;
+        private static FileSystemWatcher watcher;
         private const string ConfigManagerGUID = "com.bepis.bepinex.configurationmanager";
 
         #region Events
@@ -144,7 +145,8 @@ namespace TerrainTools.Configs
 
         internal static void SetupWatcher()
         {
-            FileSystemWatcher watcher = new(Paths.ConfigPath, ConfigFileName);
+            watcher?.Dispose();
+            watcher = new FileSystemWatcher(Paths.ConfigPath, ConfigFileName);
             watcher.Changed += ReloadConfigFile;
             watcher.Created += ReloadConfigFile;
             watcher.Renamed += ReloadConfigFile;
@@ -156,20 +158,24 @@ namespace TerrainTools.Configs
         private static void ReloadConfigFile(object sender, FileSystemEventArgs e)
         {
             if (!File.Exists(ConfigFileFullPath)) { return; }
+            var saveOnConfigSet = configFile.SaveOnConfigSet;
             try
             {
                 Log.LogInfo("Reloading config file");
 
                 // turn off saving on config entry set
-                var saveOnConfigSet = DisableSaveOnConfigSet();
+                DisableSaveOnConfigSet();
                 configFile.Reload();
-                SaveOnConfigSet(saveOnConfigSet); // reset config saving state
                 InvokeOnConfigFileReloaded(); // fire event
             }
-            catch
+            catch (Exception ex)
             {
-                Log.LogError($"There was an issue loading your {ConfigFileName}");
+                Log.LogError($"There was an issue loading your {ConfigFileName}: {ex}");
                 Log.LogError("Please check your config entries for spelling and format!");
+            }
+            finally
+            {
+                SaveOnConfigSet(saveOnConfigSet);
             }
         }
 

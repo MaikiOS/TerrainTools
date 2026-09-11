@@ -15,9 +15,7 @@ namespace TerrainTools.Helpers {
         private const float Tolerance = 0.01f;
 
 
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(Player), nameof(Player.Update))]
-        private static void UpdatePrefix(Player __instance) {
+        internal static void Tick(Player __instance) {
             if (!__instance || __instance != Player.m_localPlayer) {
                 return;
             }
@@ -119,12 +117,13 @@ namespace TerrainTools.Helpers {
                     RadiusToolIsInUse = true;
                     lastOriginalRadius = radius;
                     lastModdedRadius = ModifyRadius(radius, delta);
-                    lastTotalDelta += delta;
+                    lastTotalDelta += lastModdedRadius - radius;
                 }
             }
             else {
+                var previousRadius = lastModdedRadius;
                 lastModdedRadius = ModifyRadius(lastModdedRadius, delta);
-                lastTotalDelta += delta;
+                lastTotalDelta += lastModdedRadius - previousRadius;
             }
             Log.LogInfo($"total delta {lastTotalDelta}", LogLevel.High);
 

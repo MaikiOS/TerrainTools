@@ -5,7 +5,7 @@ namespace TerrainTools.Visualization
     public class Overlay
     {
         private GameObject GameObject { get; }
-        private ParticleSystem.Particle[] Particles => new ParticleSystem.Particle[2];
+        private readonly ParticleSystem.Particle[] particles = new ParticleSystem.Particle[2];
         private Transform Transform { get; }
 
         public ParticleSystem ps { get; }
@@ -38,17 +38,17 @@ namespace TerrainTools.Visualization
 
         public Color Color
         {
-            get { ps.GetParticles(Particles, 2); return Particles[1].GetCurrentColor(ps); }
+            get
+            {
+                var count = ps.GetParticles(particles, particles.Length);
+                return count > 0 ? particles[Mathf.Min(1, count - 1)].GetCurrentColor(ps) : StartColor;
+            }
         }
 
         public Color StartColor
         {
             get { return psm.startColor.color; }
-            set
-            {
-                var psmainStartColor = psm.startColor;
-                psmainStartColor.color = value;
-            }
+            set { var psMain = psm; psMain.startColor = value; }
         }
 
         public float StartSize
@@ -59,7 +59,7 @@ namespace TerrainTools.Visualization
 
         public float StartSpeed
         {
-            get { return psm.startSize.constant; }
+            get { return psm.startSpeed.constant; }
             set { var psMain = ps.main; psMain.startSpeed = value; }
         }
 
@@ -88,6 +88,7 @@ namespace TerrainTools.Visualization
             GameObject = transform.gameObject;
             ps = transform.GetComponentInChildren<ParticleSystem>();
             psr = transform.GetComponentInChildren<ParticleSystemRenderer>();
+            psm = ps.main;
         }
     }
 }

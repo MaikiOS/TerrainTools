@@ -1,5 +1,6 @@
 ﻿using System.IO;
 using System.Reflection;
+using System;
 using System.Linq;
 using UnityEngine;
 
@@ -38,17 +39,30 @@ namespace TerrainTools.Visualization {
                 Log.LogWarning("LoadTextureFromResources can only load png or jpg textures");
                 return null;
             }
-            fileName = Path.GetFileNameWithoutExtension(fileName);
-            var resourceName = Assembly.GetExecutingAssembly()
+            var assembly = Assembly.GetExecutingAssembly();
+            var resourceName = assembly
                 .GetManifestResourceNames()
-                .Where(name => name.Contains(fileName))
+                .Where(name => name.EndsWith("." + fileName, StringComparison.OrdinalIgnoreCase))
                 .FirstOrDefault();
+            if (resourceName == null) {
+                Log.LogWarning($"Embedded texture not found: {fileName}");
+                return null;
+            }
 
-            Stream manifestResourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName);
-            byte[] array = new byte[manifestResourceStream.Length];
-            manifestResourceStream.Read(array, 0, array.Length);
+            using Stream manifestResourceStream = assembly.GetManifestResourceStream(resourceName);
+            if (manifestResourceStream == null) {
+                Log.LogWarning($"Could not open embedded texture: {resourceName}");
+                return null;
+            }
+            using MemoryStream buffer = new();
+            manifestResourceStream.CopyTo(buffer);
             Texture2D texture = new(0, 0);
-            ImageConversion.LoadImage(texture, array);
+            var loadImage = Type.GetType("UnityEngine.ImageConversion, UnityEngine.ImageConversionModule")?
+                .GetMethod("LoadImage", new[] { typeof(Texture2D), typeof(byte[]) });
+            if (loadImage?.Invoke(null, new object[] { texture, buffer.ToArray() }) is not bool loaded || !loaded) {
+                Log.LogWarning($"Could not decode embedded texture: {resourceName}");
+                return null;
+            }
             return texture;
         }
 

@@ -1,6 +1,7 @@
 ﻿using Jotunn.Configs;
 using Jotunn.Entities;
 using Jotunn.Managers;
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 using TerrainTools.Visualization;
@@ -24,6 +25,7 @@ namespace TerrainTools.Helpers
         {
             if (HasBeenCreated) return;
             var shovelPrefab = CreateShovelPrefab();
+            if (!shovelPrefab) return;
 
             CreatePieceTable();
 
@@ -35,8 +37,8 @@ namespace TerrainTools.Helpers
 
             var shovelConfig = new ItemConfig
             {
-                Name = "Shovel",
-                Description = "",
+                Name = "$atmc_shovel_name",
+                Description = "$atmc_shovel_desc",
                 CraftingStation = CraftingStations.Forge,
                 PieceTable = ShovelPieceTable,
                 RepairStation = CraftingStations.Forge,
@@ -102,9 +104,9 @@ namespace TerrainTools.Helpers
                 boxCollider1.center = Vector3.zero;
                 boxCollider1.size = Vector3.one * 1.1f;
             }
-            catch
+            catch (Exception ex)
             {
-                Log.LogWarning("Failed to modify shovel blade");
+                Log.LogWarning($"Failed to modify shovel blade: {ex}");
             }
 
             try
@@ -124,9 +126,9 @@ namespace TerrainTools.Helpers
                 boxCollider.center = Vector3.zero;
                 boxCollider.size = new Vector3(1.5f, 1.5f, 1.025f);
             }
-            catch
+            catch (Exception ex)
             {
-                Log.LogWarning("Failed to modify shovel handle");
+                Log.LogWarning($"Failed to modify shovel handle: {ex}");
             }
 
             try
@@ -142,9 +144,9 @@ namespace TerrainTools.Helpers
                     }
                 }
             }
-            catch
+            catch (Exception ex)
             {
-                Log.LogWarning("Failed to create shovel icon");
+                Log.LogWarning($"Failed to create shovel icon: {ex}");
             }
 
             return shovel;

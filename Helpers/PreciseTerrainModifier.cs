@@ -207,15 +207,13 @@ namespace TerrainTools.Helpers {
         private static bool PaintClearedPrefix(
             TerrainComp __instance,
             Vector3 worldPos,
-            float radius,
-            TerrainModifier.PaintType paintType,
-            bool heightCheck
+            TerrainOp.Settings settings
         ) {
-            if (!IsPrecisionModifier(radius)) {
+            if (!IsPrecisionModifier(settings.m_paintRadius)) {
                 return true;
             }
 
-            PreciseRecolorTerrain(__instance, worldPos, paintType, heightCheck);
+            PreciseRecolorTerrain(__instance, worldPos, settings.m_paintType, settings.m_paintHeightCheck);
             return false;
         }
 

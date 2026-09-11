@@ -1,5 +1,11 @@
-# AdvancedTerrainModifiers
+# AdvancedTerrainModifiers Compatible
 Quality of life building mod that improves how terrain manipulation with the hoe and cultivator works and adds new terrain manipulation tools.
+
+> Install this package **instead of** `Searica-AdvancedTerrainModifiers`. Do not load both packages: this compatibility build intentionally keeps the original BepInEx plugin GUID so existing configuration and multiplayer checks continue to work.
+
+This GPLv3 compatibility fork is based on Searica's AdvancedTerrainModifiers 1.4.1 (`e773c62`). Ostrix maintains the compatibility release. It avoids the EpicLoot 0.13.x `Player.Update` Harmony conflict and keeps custom terrain operations multiplayer-safe even when the installed Jotunn build lacks custom `TerrainOp` registration. Credit for the original mod and gameplay features belongs to Searica. Do not report fork-specific issues to the original author.
+
+Version 1.4.4 targets Valheim 1.0, BepInEx 5.4.23.5 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/<Language>/translations.json`. Runtime compatibility must still be smoke-tested after each Valheim release.
 
 **Server-Side Info**: This mod does work as a client-side only mod and only needs to be installed on the server if you wish to enforce configuration settings.
 

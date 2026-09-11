@@ -5,6 +5,36 @@
 			<th align="center">Notes</th>
 		</tr>
 		<tr>
+			<td align="center">1.4.4</td>
+			<td align="left">
+				<ul>
+					<li>Added a conditional custom TerrainOp registration fallback for unpatched Jotunn builds; it is a no-op when Jotunn already registered the prefab.</li>
+					<li>Fixed the shared overlay state that broke square-tool hover information and precision height scrolling.</li>
+					<li>Added editable English and Russian gameplay translations.</li>
+					<li>Fixed config hot reload lifetime/error recovery, embedded icon loading, shovel creation guards, and clamped radius/hardness scroll accumulation.</li>
+					<li>Updated the build and package dependency to Jotunn 2.30.0 for Valheim 1.0.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
+			<td align="center">1.4.3</td>
+			<td align="left">
+				<ul>
+					<li>Updated terrain-paint and player-message calls for the Valheim 1.0 API.</li>
+					<li>Fixed the invalid internal name of the square paved-road prefab.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
+			<td align="center">1.4.2</td>
+			<td align="left">
+				<ul>
+					<li>Compatibility fork: moved radius and hardness input polling from Harmony patches on Player.Update to the plugin's own Unity Update method.</li>
+					<li>Fixes the startup hang seen when loading after EpicLoot 0.13.x.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
 			<td align="center">1.4.1</td>
 			<td align="left">
 				<ul>

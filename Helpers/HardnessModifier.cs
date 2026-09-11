@@ -34,10 +34,7 @@ namespace TerrainTools.Helpers {
         private static float lastDisplayedRaiseHardness;
 
 
-        [HarmonyPrefix]
-        [HarmonyPriority(Priority.LowerThanNormal)]
-        [HarmonyPatch(typeof(Player), nameof(Player.Update))]
-        private static void UpdatePrefix(Player __instance) {
+        internal static void Tick(Player __instance) {
             if (!__instance || __instance != Player.m_localPlayer) {
                 return;
             }
@@ -113,20 +110,20 @@ namespace TerrainTools.Helpers {
                 var smoothHardness = GetSmoothPowerDisplayValue(lastModdedSmoothPwr);
                 if (Mathf.Abs(smoothHardness - lastDisplayedSmoothHardness) > DisplayThreshold) {
                     lastDisplayedSmoothHardness = Mathf.Round(smoothHardness);
-                    updateMsg.Add($"Terrain tool smoothing hardness: {smoothHardness:0}%");
+                    updateMsg.Add($"{Localization.instance.Localize("$atmc_smoothing_hardness")} {smoothHardness:0}%");
                 }
             }
             if (RaiseToolIsInUse) {
                 var raiseHardness = GetRaisePowerDisplayValue(lastModdedRaisePwr);
                 if (Mathf.Abs(raiseHardness - lastDisplayedRaiseHardness) > DisplayThreshold) {
                     lastDisplayedRaiseHardness = Mathf.Round(raiseHardness);
-                    updateMsg.Add($"Terrain tool raise hardness: {raiseHardness:0}%");
+                    updateMsg.Add($"{Localization.instance.Localize("$atmc_raise_hardness")} {raiseHardness:0}%");
                 }
             }
             if (SmoothToolIsInUse || RaiseToolIsInUse) {
                 var toolIcon = player.m_placementGhost.GetComponent<Piece>().m_icon;
                 if (toolIcon != null && updateMsg.Count > 0) {
-                    player.Message(MessageHud.MessageType.Center, string.Join("\n", updateMsg.ToArray()), icon: toolIcon);
+                    player.Message(MessageHud.MessageType.Center, string.Join("\n", updateMsg.ToArray()), icon: toolIcon, log: false);
                 }
             }
         }
@@ -138,15 +135,10 @@ namespace TerrainTools.Helpers {
 
             Log.LogInfo($"Adjusting Smooth Power by {delta}", LogLevel.High);
 
-            if (!SmoothToolIsInUse) // new terrain tool
-            {
-                SmoothToolIsInUse = true;
-                lastModdedSmoothPwr = ModifySmoothPower(terrainOp.m_settings.m_smoothPower, delta);
-            }
-            else {
-                lastModdedSmoothPwr = ModifySmoothPower(lastModdedSmoothPwr, delta);
-            }
-            lastTotalSmoothDelta += delta;
+            var previousPower = SmoothToolIsInUse ? lastModdedSmoothPwr : terrainOp.m_settings.m_smoothPower;
+            SmoothToolIsInUse = true;
+            lastModdedSmoothPwr = ModifySmoothPower(previousPower, delta);
+            lastTotalSmoothDelta += lastModdedSmoothPwr - previousPower;
             Log.LogInfo($"Total smooth power delta {lastTotalSmoothDelta}", LogLevel.High);
         }
 
@@ -159,15 +151,10 @@ namespace TerrainTools.Helpers {
 
             Log.LogInfo($"Adjusting Raise Power by {delta}", LogLevel.High);
 
-            if (!RaiseToolIsInUse) // new terrain tool
-            {
-                RaiseToolIsInUse = true;
-                lastModdedRaisePwr = ModifyRaisePower(terrainOp.m_settings.m_raisePower, delta);
-            }
-            else {
-                lastModdedRaisePwr = ModifyRaisePower(lastModdedRaisePwr, delta);
-            }
-            lastTotalRaiseDelta += delta;
+            var previousPower = RaiseToolIsInUse ? lastModdedRaisePwr : terrainOp.m_settings.m_raisePower;
+            RaiseToolIsInUse = true;
+            lastModdedRaisePwr = ModifyRaisePower(previousPower, delta);
+            lastTotalRaiseDelta += lastModdedRaisePwr - previousPower;
             Log.LogInfo($"Total raise power delta {lastTotalRaiseDelta}", LogLevel.High);
         }
 

@@ -24,7 +24,7 @@ namespace TerrainTools {
         internal const string Author = "Searica";
         public const string PluginName = "AdvancedTerrainModifiers";
         public const string PluginGUID = $"{Author}.Valheim.TerrainTools";
-        public const string PluginVersion = "1.4.1";
+        public const string PluginVersion = "1.4.4";
 
         #region Section Names
 
@@ -136,6 +136,11 @@ namespace TerrainTools {
                     UpdatePlugin = false;
                 }
             };
+        }
+
+        private void Update() {
+            RadiusModifier.Tick(Player.m_localPlayer);
+            HardnessModifier.Tick(Player.m_localPlayer);
         }
 
         public void OnDestroy() {
@@ -252,7 +257,7 @@ namespace TerrainTools {
         /// <param name="obj"></param>
         /// <param name="e"></param>
         private static void SetUpdatePlugin(object obj, EventArgs e) {
-            UpdatePlugin = !UpdatePlugin || UpdatePlugin;
+            UpdatePlugin = true;
         }
     }
 

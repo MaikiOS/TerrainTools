@@ -29,8 +29,8 @@ namespace TerrainTools.Helpers {
                     var toolDB = ToolConfigs.ToolConfigsMap[key];
                     toolDB.prefab = MakeToolPiece(toolDB);
                 }
-                catch {
-                    Log.LogWarning($"Failed to create: {key}");
+                catch (Exception ex) {
+                    Log.LogWarning($"Failed to create {key}: {ex}");
                 }
             }
 
@@ -42,32 +42,32 @@ namespace TerrainTools.Helpers {
         internal static void FixVanillaToolDescriptions() {
             SetDescription(
                "mud_road_v2",
-               "Levels ground based on player position. Use shift + click to level ground based on where you are pointing (this will smooth the terrain)."
+               "$atmc_vanilla_level_desc"
             );
 
             SetDescription(
                 "raise_v2",
-                "Raise grounds up to a maximum of 8 m above it's original height."
+                "$atmc_vanilla_raise_desc"
             );
 
             SetDescription(
                 "path_v2",
-                "Creates a dirt path without affecting ground height."
+                "$atmc_vanilla_path_desc"
             );
 
             SetDescription(
                 "paved_road_v2",
-                "Creates a paved path and levels ground based on player position. Use shift+click to level ground based on where you are pointing (this will smooth the terrain)."
+                "$atmc_vanilla_paved_desc"
             );
 
             SetDescription(
                 "cultivate_v2",
-                "Cultivates ground and levels ground based on player position. Use shift + click to level ground based on where you are pointing (this will smooth the terrain)."
+                "$atmc_vanilla_cultivate_desc"
             );
 
             SetDescription(
                 "replant_v2",
-                "Replants terrain without affecting ground height."
+                "$atmc_vanilla_replant_desc"
             );
         }
 
@@ -107,7 +107,7 @@ namespace TerrainTools.Helpers {
             foreach (var key in ToolConfigs.ToolConfigsMap.Keys) {
                 if (TerrainTools.IsToolEnabled(key)) {
                     var toolDB = ToolConfigs.ToolConfigsMap[key];
-                    RegisterPieceInPieceTable(toolDB.prefab, toolDB.pieceTable, null, toolDB.insertIndex);
+                    RegisterPieceInPieceTable(toolDB.prefab, toolDB.pieceTable, toolDB.insertIndex);
                 }
             }
         }
@@ -117,10 +117,10 @@ namespace TerrainTools.Helpers {
                 try {
                     var toolDB = ToolConfigs.ToolConfigsMap[key];
                     toolDB.prefab = MakeToolPiece(toolDB);
-                    RegisterPieceInPieceTable(toolDB.prefab, toolDB.pieceTable, null, toolDB.insertIndex);
+                    RegisterPieceInPieceTable(toolDB.prefab, toolDB.pieceTable, toolDB.insertIndex);
                 }
-                catch {
-                    Log.LogWarning($"Failed to create: {key}");
+                catch (Exception ex) {
+                    Log.LogWarning($"Failed to create {key}: {ex}");
                 }
             }
         }
@@ -159,9 +159,6 @@ namespace TerrainTools.Helpers {
         }
 
         internal static GameObject MakeToolPiece(ToolDB toolDB) {
-            // prevent duplicates
-            if (PieceManager.Instance.GetPiece(toolDB.pieceName) != null) { return null; }
-
             // clone base prefab and set name
             var toolPrefab = PrefabManager.Instance.CreateClonedPrefab(toolDB.name, toolDB.basePrefab);
             if (toolPrefab == null) { return null; }
@@ -218,13 +215,11 @@ namespace TerrainTools.Helpers {
         /// <summary>
         ///     Register a single piece prefab into a piece table by name.<br />
         ///     Also adds the prefab to the <see cref="PrefabManager"/> and <see cref="ZNetScene"/> if necessary.<br />
-        ///     Custom categories can be referenced if they have been added to the manager before.<br />
         ///     No mock references are fixed.
         /// </summary>
         /// <param name="prefab"><see cref="GameObject"/> with a <see cref="Piece"/> component to add to the table</param>
         /// <param name="pieceTable">Prefab or item name of the PieceTable</param>
-        /// <param name="category">Optional category string, does not create new custom categories</param>
-        private static void RegisterPieceInPieceTable(GameObject prefab, string pieceTable, string category, int position = -1) {
+        private static void RegisterPieceInPieceTable(GameObject prefab, string pieceTable, int position = -1) {
             var piece = prefab.GetComponent<Piece>();
             if (piece == null) {
                 throw new Exception($"Prefab {prefab.name} has no Piece component attached");
@@ -235,19 +230,16 @@ namespace TerrainTools.Helpers {
                 throw new Exception($"Could not find PieceTable {pieceTable}");
             }
 
-            if (table.m_pieces.Contains(prefab)) {
-                Log.LogDebug($"Already added piece {prefab.name}");
-                return;
-            }
-
             var name = prefab.name;
             var hash = name.GetStableHashCode();
             if (ZNetScene.instance != null && !ZNetScene.instance.m_namedPrefabs.ContainsKey(hash)) {
                 PrefabManager.Instance.RegisterToZNetScene(prefab);
             }
+            EnsureTerrainOpRegistered(prefab);
 
-            if (!string.IsNullOrEmpty(category)) {
-                piece.m_category = PieceManager.Instance.AddPieceCategory(pieceTable, category);
+            if (table.m_pieces.Contains(prefab)) {
+                Log.LogDebug($"Already added piece {prefab.name}");
+                return;
             }
 
             if (!InsertionIndexes.ContainsKey(pieceTable)) {
@@ -277,6 +269,32 @@ namespace TerrainTools.Helpers {
             }
 
             Log.LogDebug($"Added piece {prefab.name} | Token: {piece.TokenName()}");
+        }
+
+        /// <summary>
+        ///     Registers this mod's custom terrain prefab in ObjectDB when the installed
+        ///     Jotunn version has not done so. Safe to call with the upstream fix present.
+        /// </summary>
+        internal static void EnsureTerrainOpRegistered(GameObject prefab) {
+            var objectDB = ObjectDB.instance;
+            var terrainOp = prefab ? prefab.GetComponent<TerrainOp>() : null;
+            if (!objectDB || !terrainOp) {
+                return;
+            }
+
+            var hash = objectDB.GetPrefabHash(prefab);
+            if (objectDB.m_terrainOpsByHash.TryGetValue(hash, out var registeredTerrainOp)) {
+                if (registeredTerrainOp != terrainOp) {
+                    Log.LogWarning($"TerrainOp prefab hash collision for {prefab.name} ({hash}); keeping the registered prefab");
+                }
+                return;
+            }
+
+            if (!objectDB.m_terrainOps.Contains(terrainOp)) {
+                objectDB.m_terrainOps.Add(terrainOp);
+            }
+            objectDB.m_terrainOpsByHash.Add(hash, terrainOp);
+            Log.LogDebug($"Registered TerrainOp {prefab.name} in ObjectDB");
         }
 
 
