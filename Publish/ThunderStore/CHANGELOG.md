@@ -8,6 +8,11 @@
 			<td align="center">1.4.4</td>
 			<td align="left">
 				<ul>
+					<li>Preserved runtime TerrainOp settings across Valheim 1.0 RPC serialization, fixing precise height, radius, hardness, and square paint results.</li>
+					<li>Restored custom TerrainOp registration after leaving and re-entering a world.</li>
+					<li>Aligned square paint previews to Valheim's interpolated paint-mask grid and documented the engine-level texture-edge limitation.</li>
+					<li>Restored terrain across Heightmap borders and legacy TerrainModifiers, added Alt + wheel restoration radius control, and scaled the frame and center marker together.</li>
+					<li>Prevented camera zoom while adjusting terrain tools and increased the default hardness scroll speed.</li>
 					<li>Added a conditional custom TerrainOp registration fallback for unpatched Jotunn builds; it is a no-op when Jotunn already registered the prefab.</li>
 					<li>Fixed the shared overlay state that broke square-tool hover information and precision height scrolling.</li>
 					<li>Added editable English and Russian gameplay translations.</li>

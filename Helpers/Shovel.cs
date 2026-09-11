@@ -56,7 +56,7 @@ namespace TerrainTools.Helpers
             var pieceTableConfig = new PieceTableConfig()
             {
                 CanRemovePieces = false,
-                UseCategories = true,
+                UseCategories = false,
                 UseCustomCategories = false
             };
             var CPT = new CustomPieceTable(ShovelPieceTable, pieceTableConfig);

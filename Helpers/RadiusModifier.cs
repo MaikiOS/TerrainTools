@@ -53,7 +53,13 @@ namespace TerrainTools.Helpers {
         /// <returns></returns>
         internal static bool IsValidSelectedPiece(Player player, out TerrainOp terrainOp) {
             var piece = player.GetSelectedPiece();
-            if (!piece || !piece.gameObject || piece.gameObject.GetComponent<OverlayVisualizer>()) {
+            if (!piece || !piece.gameObject) {
+                terrainOp = null;
+                return false;
+            }
+
+            var overlay = piece.gameObject.GetComponent<OverlayVisualizer>();
+            if (overlay && !(overlay is RemoveModificationsOverlayVisualizer)) {
                 terrainOp = null;
                 return false;
             }
@@ -78,10 +84,19 @@ namespace TerrainTools.Helpers {
         [HarmonyPriority(Priority.VeryHigh)]
         [HarmonyPatch(typeof(TerrainOp), nameof(TerrainOp.Awake))]
         private static void AwakePrefix(TerrainOp __instance) {
-            if (!__instance ||
-                !__instance.gameObject ||
-                __instance.gameObject.GetComponent<OverlayVisualizer>()) {
+            if (!__instance || !__instance.gameObject) {
                 return;
+            }
+
+            var overlay = __instance.gameObject.GetComponent<OverlayVisualizer>();
+            var isResetTool = overlay is RemoveModificationsOverlayVisualizer;
+            if (overlay && !isResetTool) {
+                return;
+            }
+
+            if (isResetTool) {
+                __instance.m_settings.m_levelRadius = ModifyRadius(__instance.m_settings.m_levelRadius, lastTotalDelta);
+                Log.LogInfo($"Applying reset radius {__instance.m_settings.m_levelRadius}", LogLevel.Medium);
             }
 
             if (__instance.m_settings.m_level) {
@@ -110,6 +125,10 @@ namespace TerrainTools.Helpers {
         }
 
         private static void SetRadius(TerrainOp terrainOp, float delta) {
+            var isResetTool = terrainOp && terrainOp.gameObject.GetComponent<RemoveModificationsOverlayVisualizer>();
+            if (isResetTool) {
+                delta = Mathf.Sign(delta);
+            }
             Log.LogInfo($"Adjusting radius by {delta}", LogLevel.High);
 
             if (!RadiusToolIsInUse && terrainOp) {
@@ -139,6 +158,12 @@ namespace TerrainTools.Helpers {
                 return;
             }
 
+            var resetVisualizer = player.m_placementGhost.GetComponent<RemoveModificationsOverlayVisualizer>();
+            if (resetVisualizer) {
+                resetVisualizer.SetScale(lastGhostScale);
+                return;
+            }
+
             var ghost = player.m_placementGhost.transform.Find("_GhostOnly");
             if (!ghost) {
                 return;
@@ -164,6 +189,9 @@ namespace TerrainTools.Helpers {
         /// <returns></returns>
         private static bool TryGetMaximumRadius(TerrainOp terrainOp, out float maxRadius) {
             maxRadius = 0f;
+            if (terrainOp.gameObject.GetComponent<RemoveModificationsOverlayVisualizer>()) {
+                maxRadius = terrainOp.m_settings.m_levelRadius;
+            }
             if (terrainOp.m_settings.m_level && maxRadius < terrainOp.m_settings.m_levelRadius) {
                 maxRadius = terrainOp.m_settings.m_levelRadius;
             }

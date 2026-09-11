@@ -51,6 +51,12 @@ namespace TerrainTools.Visualization
             set { var psMain = psm; psMain.startColor = value; }
         }
 
+        public Vector3 LocalScale
+        {
+            get { return Transform.localScale; }
+            set { Transform.localScale = value; }
+        }
+
         public float StartSize
         {
             get { return psm.startSize.constant; }

@@ -9,6 +9,9 @@ namespace TerrainTools.Helpers {
     [HarmonyPatch(typeof(PreciseTerrainModifier))]
     public static class PreciseTerrainModifier {
         public const int FixedRadius = 1;
+        public const int FixedPaintRadius = 1;
+        private const int SettingsPayloadMagic = 0x41544D53; // ATMS
+        private const int SettingsPayloadVersion = 1;
 
         /// <summary>
         ///     Checks if radius is set as flag for precision modifier.
@@ -39,8 +42,14 @@ namespace TerrainTools.Helpers {
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(TerrainComp), nameof(TerrainComp.ApplyOperation))]
-        private static void ApplyOperationPrefix(TerrainOp modifier) {
+        private static void ApplyOperationPrefix(TerrainComp __instance, TerrainOp modifier) {
             if (!modifier || !modifier.gameObject) { return; }
+
+            // Valheim 1.0 resolves TerrainOp settings on the owner. Claim before
+            // sending so the process with this compatibility patch applies them.
+            if (__instance && __instance.m_nview && !__instance.m_nview.IsOwner()) {
+                __instance.m_nview.ClaimOwnership();
+            }
 
             // Set radius to -inf so I can check if custom overlay in later methods
             if (modifier.gameObject.GetComponentInChildren<OverlayVisualizer>()) {
@@ -57,21 +66,100 @@ namespace TerrainTools.Helpers {
             }
         }
 
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(TerrainOp), nameof(TerrainOp.GetRadius))]
+        private static void GetRadiusPostfix(TerrainOp __instance, ref float __result) {
+            if (__instance && __instance.gameObject.GetComponent<RemoveModificationsOverlayVisualizer>()) {
+                __result = Mathf.Max(__result, __instance.m_settings.m_levelRadius + 1f);
+            }
+        }
+
+        private static void RemoveLegacyTerrainModifiers(Vector3 position, float radius) {
+            var modifiers = new List<TerrainModifier>();
+            TerrainModifier.GetModifiers(position, radius + 1f, modifiers);
+            foreach (var modifier in modifiers) {
+                if (!modifier || !modifier.m_nview) {
+                    continue;
+                }
+                modifier.m_nview.ClaimOwnership();
+                ZNetScene.instance.Destroy(modifier.gameObject);
+            }
+        }
+
         /// <summary>
-        ///     Claim ownership before sending RPC to do terrain operation to
-        ///     ensure that custom terrain ops run on a PC with the mod.
+        ///     Valheim 1.0 serializes only the TerrainOp prefab hash. Preserve the
+        ///     runtime values changed by precision, radius, and hardness controls.
         /// </summary>
-        /// <param name="__instance"></param>
-        [HarmonyPrefix]
-        [HarmonyPatch(typeof(TerrainComp), nameof(TerrainComp.RPC_ApplyOperation))]
-        private static void RPC_ApplyOperationPrefix(TerrainComp __instance) {
-            if (!__instance || !__instance.m_nview) {
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(TerrainOp.Settings), nameof(TerrainOp.Settings.Serialize))]
+        private static void SerializeSettingsPostfix(TerrainOp.Settings __instance, ZPackage pkg) {
+            if (__instance == null || pkg == null) {
                 return;
             }
 
-            if (!__instance.m_nview.IsOwner()) {
-                __instance.m_nview.ClaimOwnership();
+            pkg.Write(SettingsPayloadMagic);
+            pkg.Write(SettingsPayloadVersion);
+            pkg.Write(__instance.m_levelRadius);
+            pkg.Write(__instance.m_raiseRadius);
+            pkg.Write(__instance.m_raisePower);
+            pkg.Write(__instance.m_raiseDelta);
+            pkg.Write(__instance.m_smoothRadius);
+            pkg.Write(__instance.m_smoothPower);
+            pkg.Write(__instance.m_paintRadius);
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(TerrainOp.Settings), nameof(TerrainOp.Settings.Deserialize))]
+        private static void DeserializeSettingsPostfix(ZPackage pkg, ref TerrainOp.Settings __result) {
+            const int payloadSize = sizeof(int) * 2 + sizeof(float) * 7;
+            if (__result == null || pkg == null || pkg.Size() - pkg.GetPos() < payloadSize) {
+                return;
             }
+
+            var payloadStart = pkg.GetPos();
+            if (pkg.ReadInt() != SettingsPayloadMagic || pkg.ReadInt() != SettingsPayloadVersion) {
+                pkg.SetPos(payloadStart);
+                return;
+            }
+
+            var settings = CopySettings(__result);
+            settings.m_levelRadius = pkg.ReadSingle();
+            settings.m_raiseRadius = pkg.ReadSingle();
+            settings.m_raisePower = pkg.ReadSingle();
+            settings.m_raiseDelta = pkg.ReadSingle();
+            settings.m_smoothRadius = pkg.ReadSingle();
+            settings.m_smoothPower = pkg.ReadSingle();
+            settings.m_paintRadius = pkg.ReadSingle();
+            __result = settings;
+        }
+
+        private static TerrainOp.Settings CopySettings(TerrainOp.Settings source) {
+            return new TerrainOp.Settings {
+                m_levelOffset = source.m_levelOffset,
+                m_level = source.m_level,
+                m_levelRadius = source.m_levelRadius,
+                m_square = source.m_square,
+                m_raise = source.m_raise,
+                m_raiseRadius = source.m_raiseRadius,
+                m_raisePower = source.m_raisePower,
+                m_raiseDelta = source.m_raiseDelta,
+                m_smooth = source.m_smooth,
+                m_smoothRadius = source.m_smoothRadius,
+                m_smoothPower = source.m_smoothPower,
+                m_paintCleared = source.m_paintCleared,
+                m_paintHeightCheck = source.m_paintHeightCheck,
+                m_paintType = source.m_paintType,
+                m_paintRadius = source.m_paintRadius,
+                m_paintStrength = source.m_paintStrength,
+                m_paintExp = source.m_paintExp,
+                m_paintCurve = source.m_paintCurve,
+                m_rotation = source.m_rotation,
+                m_sides = source.m_sides,
+                m_addMedianMax = source.m_addMedianMax,
+                m_centerMultiplicationFactor = source.m_centerMultiplicationFactor,
+                m_pointMultiplicationFactor = source.m_pointMultiplicationFactor,
+                m_halfOffset = source.m_halfOffset
+            };
         }
 
         /// <summary>
@@ -88,8 +176,10 @@ namespace TerrainTools.Helpers {
             TerrainOp.Settings modifier
         ) {
             if (!modifier.m_level && !modifier.m_raise && !modifier.m_smooth && !modifier.m_paintCleared) {
-                RemoveTerrainModifications(__instance, pos);
-                PreciseRecolorTerrain(__instance, pos, TerrainModifier.PaintType.Reset);
+                var radius = Mathf.Clamp(Mathf.RoundToInt(modifier.m_levelRadius), FixedRadius, Mathf.CeilToInt(TerrainTools.MaxRadius));
+                RemoveLegacyTerrainModifiers(pos, radius);
+                RemoveTerrainModifications(__instance, pos, radius);
+                PreciseRecolorTerrain(__instance, pos, TerrainModifier.PaintType.Reset, radius: radius);
             }
         }
 
@@ -218,15 +308,20 @@ namespace TerrainTools.Helpers {
         }
 
 
-        public static void RemoveTerrainModifications(TerrainComp comp, Vector3 worldPos) {
+        public static void RemoveTerrainModifications(TerrainComp comp, Vector3 worldPos, int radius = FixedRadius) {
             Log.LogInfo("[INIT] Remove Terrain Modifications", LogLevel.Medium);
 
             var worldSize = comp.m_width + 1;
             comp.m_hmap.WorldToVertex(worldPos, out var xPos, out var yPos);
             Log.LogInfo($"worldPos: {worldPos}, vertexPos: ({xPos}, {yPos})", LogLevel.Medium);
 
-            FindExtrema(xPos, worldSize, out var xMin, out var xMax);
-            FindExtrema(yPos, worldSize, out var yMin, out var yMax);
+            FindExtrema(xPos, worldSize, radius, out var xMin, out var xMax);
+            FindExtrema(yPos, worldSize, radius, out var yMin, out var yMax);
+            Log.LogInfo(
+                $"Reset chunk {comp.transform.position}: radius={radius}, vertices=({xMin}..{xMax}, {yMin}..{yMax}), " +
+                $"edge={xMin == 0 || yMin == 0 || xMax == worldSize - 1 || yMax == worldSize - 1}",
+                LogLevel.Low
+            );
             for (var x = xMin; x <= xMax; x++) {
                 for (var y = yMin; y <= yMax; y++) {
                     var tileIndex = y * worldSize + x;
@@ -243,24 +338,22 @@ namespace TerrainTools.Helpers {
             TerrainComp comp,
             Vector3 worldPos,
             TerrainModifier.PaintType paintType,
-            bool heightCheck = false
+            bool heightCheck = false,
+            int radius = FixedPaintRadius
         ) {
             Log.LogInfo("[INIT] PreciseRecolorTerrain", LogLevel.Medium);
-            worldPos.x -= 0.5f;
-            worldPos.z -= 0.5f;
             var worldSize = comp.m_width + 1;
 
             comp.m_hmap.WorldToVertexMask(worldPos, out int xPos, out int yPos);
-            var center = new Vector2(xPos, yPos);
-            
             var tileColor = ResolveColor(paintType);
-            var resetColor = paintType == TerrainModifier.PaintType.Reset;
 
-            FindExtrema(xPos, worldSize, out var xMin, out var xMax);
-            FindExtrema(yPos, worldSize, out var yMin, out var yMax);
+            FindExtrema(xPos, worldSize, radius, out var xMin, out var xMax);
+            FindExtrema(yPos, worldSize, radius, out var yMin, out var yMax);
+            var xStart = xPos <= 0 ? xMin : xMin + 1;
+            var yStart = yPos <= 0 ? yMin : yMin + 1;
 
-            for (var i = xMin+1; i <= xMax; i++) {
-                for (var j = yMin+1; j <= yMax; j++)
+            for (var i = xStart; i <= xMax; i++) {
+                for (var j = yStart; j <= yMax; j++)
                 {
                     //Log.LogInfo("EditPaint");
                     //Log.LogInfo($"X: {i}, {xMin}, {xMax}");
@@ -269,7 +362,7 @@ namespace TerrainTools.Helpers {
                     tileColor.a = comp.m_hmap.GetPaintMask(i, j).a;  // avoids lava
                     var tileIndex = (j * worldSize) + i;
                     comp.m_paintMask[tileIndex] = tileColor;
-                    comp.m_modifiedPaint[tileIndex] = !resetColor;
+                    comp.m_modifiedPaint[tileIndex] = true;
                     Log.LogInfo($"tilePos: ({i}, {j}), tileIndex: {tileIndex}, tileColor: {tileColor}", LogLevel.Medium);
                 }
             }
@@ -301,8 +394,12 @@ namespace TerrainTools.Helpers {
         /// <param name="xMin"></param>
         /// <param name="xMax"></param>
         public static void FindExtrema(int x, int worldSize, out int xMin, out int xMax) {
-            xMin = Mathf.Max(0, x - FixedRadius);
-            xMax = Mathf.Min(x + FixedRadius, worldSize - 1);
+            FindExtrema(x, worldSize, FixedRadius, out xMin, out xMax);
+        }
+
+        private static void FindExtrema(int x, int worldSize, int radius, out int xMin, out int xMax) {
+            xMin = Mathf.Max(0, x - radius);
+            xMax = Mathf.Min(x + radius, worldSize - 1);
         }
     }
 }

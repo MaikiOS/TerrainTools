@@ -170,7 +170,7 @@ namespace TerrainTools {
                 ConfigManager.SetStringPriority("RadiusModifier", 1),
                 true,
                 "Set to true/enabled to allow modifying the radius of terrain tools using the scroll wheel. " +
-                "Note: Radius cannot be changed on square terraforming tools."
+                "Note: Radius cannot be changed on square tools except terrain restoration."
             );
 
             radiusModKey = ConfigManager.BindConfig(
@@ -219,7 +219,7 @@ namespace TerrainTools {
             hardnessScrollScale = ConfigManager.BindConfig(
                 HardnessSection,
                 "HardnessScrollScale",
-                0.1f,
+                1f,
                 "Scroll wheel change scale, larger magnitude means the hardness will change " +
                 "faster and negative sign will reverse the direction you need to scroll to increase the hardness.",
                 new AcceptableValueRange<float>(-1f, 1f),

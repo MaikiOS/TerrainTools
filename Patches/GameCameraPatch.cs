@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Reflection.Emit;
 using TerrainTools.Helpers;
 using TerrainTools.Visualization;
+using UnityEngine;
 
 namespace TerrainTools.Patches
 {
@@ -40,8 +41,8 @@ namespace TerrainTools.Patches
             if (selectedPiece?.gameObject != null)
             {
                 if (selectedPiece.gameObject.GetComponentInChildren<RaiseGroundOverlayVisualizer>() ||
-                    RadiusModifier.ShouldModifyRadius() ||
-                    HardnessModifier.ShouldModifyHardness())
+                    TerrainTools.IsEnableRadiusModifier && Input.GetKey(TerrainTools.RadiusKey) ||
+                    TerrainTools.IsEnableHardnessModifier && Input.GetKey(TerrainTools.HardnessKey))
                 {
                     return true;
                 }

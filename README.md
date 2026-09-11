@@ -5,11 +5,22 @@ Quality of life building mod that improves how terrain manipulation with the hoe
 
 This GPLv3 compatibility fork is based on Searica's AdvancedTerrainModifiers 1.4.1 (`e773c62`). Ostrix maintains the compatibility release. It avoids the EpicLoot 0.13.x `Player.Update` Harmony conflict and keeps custom terrain operations multiplayer-safe even when the installed Jotunn build lacks custom `TerrainOp` registration. Credit for the original mod and gameplay features belongs to Searica. Do not report fork-specific issues to the original author.
 
-Version 1.4.4 targets Valheim 1.0, BepInEx 5.4.23.5 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/<Language>/translations.json`. Runtime compatibility must still be smoke-tested after each Valheim release.
+Version 1.4.4 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/<Language>/translations.json`. Runtime compatibility must still be smoke-tested after each Valheim release.
+
+## Version 1.4.4
+
+- Preserves precision height, radius, hardness, smoothing and paint settings through Valheim 1.0 terrain-operation RPC serialization.
+- Restores custom `TerrainOp` registration after world reloads and provides an idempotent fallback when the installed Jotunn build does not register custom terrain operations.
+- Fixes terrain restoration across Heightmap boundaries and removes legacy `TerrainModifier` objects inside the selected area.
+- Adds adjustable restoration radius with `Alt + mouse wheel`; the frame and center marker now scale together.
+- Prevents camera zoom while changing radius or hardness and increases the default hardness scroll speed.
+- Fixes overlay state, precision-height scrolling, square-tool hover information, shovel initialization and its single-action build menu.
+- Adds editable English and Russian gameplay localization.
+- Updates the package for BepInEx 5.4.2350 and Jotunn 2.30.0.
 
 **Server-Side Info**: This mod does work as a client-side only mod and only needs to be installed on the server if you wish to enforce configuration settings.
 
-**Ashlands Update**: There are some visual glitches at the moment where the change of terrain paint (dirt, cobblestone, grass, etc.) can be slightly misalgned with the precision terrain tools (square shaped tools). This issue is related to a Vanilla issue and will be adressed as soon as possible.
+**Terrain paint note**: Valheim stores terrain paint on a coarse interpolated mask. The visible edge can therefore extend slightly beyond a square preview. The same behavior was reproduced with PlanBuild's terrain-paint tool and is treated as a current engine limitation rather than a different operation area in this mod.
 
 ## Features
 
@@ -104,7 +115,7 @@ Changes made to the configuration settings will be reflected in-game immediately
 			<td align="center"><b>RadiusModifier</b></td>
         <td align="center">Yes</td>
 			<td align="left">
-                Set to true/enabled to allow modifying the radius of terrain tools using the scroll wheel. Note: Radius cannot be changed on square terraforming tools.
+                Set to true/enabled to allow modifying the radius of terrain tools using the scroll wheel. Note: Radius cannot be changed on square tools except terrain restoration.
 				<ul>
 					<li>Acceptable values: False, True</li>
 					<li>Default value: true</li>
@@ -187,7 +198,7 @@ Changes made to the configuration settings will be reflected in-game immediately
                 Scroll wheel change scale, larger magnitude means the hardness will change faster and negative sign will reverse the direction you need to scroll to increase the hardness.
 				<ul>
 					<li>Acceptable values: (-1, 1)</li>
-					<li>Default value: 0.1</li>
+					<li>Default value: 1</li>
 				</ul>
 			</td>
 		</tr>
@@ -278,7 +289,7 @@ Changes made to the configuration settings will be reflected in-game immediately
 </table>
 
 ## Known Issues
-Reseting terrain modifications on the edge of a zone when there are significant differences in terrain height can result in the terrain appearing to tear. To fix this you can hit the tear in the fabric of reality with a pickaxe, or just walk to the other zone and reset the terrain while in that zone. This isn't something I plan to fix and it's largely a product of how terrain and zones work in Valheim.
+Terrain paint is stored on Valheim's interpolated paint-mask grid, so the visible texture edge may extend slightly beyond a square preview. Terrain height and restoration bounds are unaffected by this visual blending.
 
 ## Compatibility
 Should usually be compatible with everything except other mods that let you change the radius of terrain manipulation tools as they will likely conflict.
@@ -297,13 +308,13 @@ My mods will always be free to use but if you feel like saying thanks you can ti
 ## Source Code
 Source code is available on Github.
 
-| Github Repository: | <img height="18" src="https://github.githubassets.com/favicons/favicon-dark.svg"></img> [TerrainTools](https://github.com/searica/TerrainTools)  |
-|-----------|---------------|
+| Repository | Link |
+|------------|------|
+| Maintained fork | <img height="18" src="https://github.githubassets.com/favicons/favicon-dark.svg"></img> [MaikiOS/TerrainTools](https://github.com/MaikiOS/TerrainTools) |
+| Original project | <img height="18" src="https://github.githubassets.com/favicons/favicon-dark.svg"></img> [searica/TerrainTools](https://github.com/searica/TerrainTools) |
 
 ### Contributions
-If you would like to provide suggestions, make feature requests, or reports bugs and compatibility issues you can either open an issue on the Github repository or tag me (@searica) with a message on my discord [Searica's Mods](https://discord.gg/sFmGTBYN6n).
-
-I'm a grad student and have a lot of personal responsibilities on top of that so I can't promise I will respond quickly, but I do intend to maintain and improve the mod in my free time.
+Report compatibility-fork issues to the maintained fork, not to the original package author.
 
 ### Credits
 This mod was inspired by and is based on OCDHeim by javadevils as well as HoeRadius by aedenthorn.

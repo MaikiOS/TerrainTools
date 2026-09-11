@@ -9,7 +9,8 @@
 	<ItemGroup>
 		<ProjectResources Include="$(ProjectResourcesDir)\*.png" />
 		<SolutionResources Include="$(SolutionResourcesDir)\*.png" />
-		<PackageFiles Include="$(PackageDir)\*.*" />
+		<PackageFiles Include="$(PackageDir)\**\*.*" />
+		<PackageTranslations Include="$(PackageDir)\Translations\**\*.*" />
 	</ItemGroup>
 	<Target Name="CreateMdbFile" BeforeTargets="CopyDLLToPlugins" Condition="'$(Configuration)' == 'Debug'">
 		<Message Text="Creating the mdb debug file" Importance="high" Condition="Exists('$(Pdb2MdbPath)')" />
@@ -144,6 +145,11 @@
 
 		<Message Text="Copying $(TargetFileName) to $(PublishDir)\Nexus" Importance="high" />
 		<Copy SourceFiles="$(TargetPath)" DestinationFolder="$(PublishDir)\Nexus" />
+		<Copy
+			SourceFiles="@(PackageTranslations)"
+			DestinationFiles="@(PackageTranslations->'$(PublishDir)\Nexus\Translations\%(RecursiveDir)%(Filename)%(Extension)')"
+			Condition="Exists('@(PackageTranslations)')"
+			SkipUnchangedFiles="true" />
 
 		<Message Text="Copying Resources directory to $(OutputResources)" Importance="high" />
 		<Message
@@ -195,7 +201,7 @@
 			Condition="Exists('@(PackageFiles)')" />
 		<Copy
 			SourceFiles="@(PackageFiles)"
-			DestinationFolder="$(PublishDir)\ThunderStore"
+			DestinationFiles="@(PackageFiles->'$(PublishDir)\ThunderStore\%(RecursiveDir)%(Filename)%(Extension)')"
 			Condition="Exists('@(PackageFiles)') "
 			SkipUnchangedFiles="true" />
 

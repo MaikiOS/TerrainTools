@@ -1,6 +1,7 @@
 ﻿using Jotunn;
 using Jotunn.Entities;
 using Jotunn.Managers;
+using HarmonyLib;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -22,7 +23,10 @@ namespace TerrainTools.Helpers {
         private static readonly Dictionary<string, List<int>> InsertionIndexes = new();
 
         internal static void InitToolPieces() {
-            if (HasInitialized) return;
+            if (HasInitialized) {
+                RefreshTerrainOpRegistrations();
+                return;
+            }
             FixVanillaToolDescriptions();
 
             foreach (var key in ToolConfigs.ToolConfigsMap.Keys) {
@@ -38,6 +42,22 @@ namespace TerrainTools.Helpers {
             HasInitialized = true;
 
             UpdateTools();
+        }
+
+        internal static void RefreshTerrainOpRegistrations() {
+            foreach (var toolDB in ToolConfigs.ToolConfigsMap.Values) {
+                if (toolDB.prefab) {
+                    EnsureTerrainOpRegistered(toolDB.prefab);
+                }
+            }
+        }
+
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(ObjectDB), "UpdateRegisters")]
+        private static void ObjectDBUpdateRegistersPostfix() {
+            if (HasInitialized) {
+                RefreshTerrainOpRegistrations();
+            }
         }
 
         internal static void FixVanillaToolDescriptions() {

@@ -63,13 +63,30 @@ namespace TerrainTools.Visualization {
         }
 
         protected void VisualizeRecoloringBounds(Overlay overlay) {
-            overlay.StartSize = 4.0f;
+            overlay.StartSize = 3.0f;
             overlay.psr.material.mainTexture = IconCache.Box;
             overlay.LocalPosition = VerticalOffset;
         }
 
+        protected void SnapToPaintGrid(Overlay overlay) {
+            var heightmap = Heightmap.FindHeightmap(transform.position);
+            if (!heightmap) {
+                overlay.LocalPosition = VerticalOffset;
+                return;
+            }
+
+            heightmap.WorldToVertexMask(transform.position, out var xPos, out var yPos);
+            var first = heightmap.VertexMaskToWorld(xPos, yPos);
+            var last = heightmap.VertexMaskToWorld(xPos + 2, yPos + 2);
+            overlay.Position = new Vector3(
+                (first.x + last.x) * 0.5f,
+                transform.position.y + VerticalOffset.y,
+                (first.z + last.z) * 0.5f
+            );
+        }
+
         protected void VisualizeIconInsideRecoloringBounds(Overlay overlay, Texture iconTexture) {
-            overlay.StartSize = 3.0f;
+            overlay.StartSize = 2.5f;
             overlay.psr.material.mainTexture = iconTexture;
             overlay.Position = transform.position + VerticalOffset;
         }

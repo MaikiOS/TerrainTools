@@ -118,6 +118,7 @@ namespace TerrainTools.Configs
                     icon: IconCache.Remove,
                     pieceTable: PieceTables.Hoe,
                     overlayType: typeof(RemoveModificationsOverlayVisualizer),
+                    levelRadius: PreciseTerrainModifier.FixedRadius,
                     smooth: false,
                     level: false,
                     raise: false,
