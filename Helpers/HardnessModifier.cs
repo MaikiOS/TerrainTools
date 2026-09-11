@@ -121,7 +121,8 @@ namespace TerrainTools.Helpers {
                 }
             }
             if (SmoothToolIsInUse || RaiseToolIsInUse) {
-                var toolIcon = player.m_placementGhost.GetComponent<Piece>().m_icon;
+                var placementPiece = player.m_placementGhost ? player.m_placementGhost.GetComponent<Piece>() : null;
+                var toolIcon = placementPiece ? placementPiece.m_icon : null;
                 if (toolIcon != null && updateMsg.Count > 0) {
                     player.Message(MessageHud.MessageType.Center, string.Join("\n", updateMsg.ToArray()), icon: toolIcon, log: false);
                 }

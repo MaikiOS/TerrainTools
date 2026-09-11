@@ -11,6 +11,7 @@ using static UnityEngine.GridBrushBase;
 namespace TerrainTools.Helpers {
     internal static class InitManager {
         private static bool HasInitialized = false;
+        private static bool HasLoggedTerrainOpFallback = false;
         internal static readonly Dictionary<string, GameObject> ToolRefs = new();
 
         /// <summary>
@@ -107,6 +108,10 @@ namespace TerrainTools.Helpers {
             foreach (var key in ToolConfigs.ToolConfigsMap.Keys) {
                 if (TerrainTools.IsToolEnabled(key)) {
                     var toolDB = ToolConfigs.ToolConfigsMap[key];
+                    if (!toolDB.prefab) {
+                        Log.LogWarning($"Skipping unavailable terrain tool: {key}");
+                        continue;
+                    }
                     RegisterPieceInPieceTable(toolDB.prefab, toolDB.pieceTable, toolDB.insertIndex);
                 }
             }
@@ -294,6 +299,10 @@ namespace TerrainTools.Helpers {
                 objectDB.m_terrainOps.Add(terrainOp);
             }
             objectDB.m_terrainOpsByHash.Add(hash, terrainOp);
+            if (!HasLoggedTerrainOpFallback) {
+                HasLoggedTerrainOpFallback = true;
+                Log.LogInfo("Installed Jotunn did not register custom TerrainOps; using the AdvancedTerrainModifiers fallback");
+            }
             Log.LogDebug($"Registered TerrainOp {prefab.name} in ObjectDB");
         }
 

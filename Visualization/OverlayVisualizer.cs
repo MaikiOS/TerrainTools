@@ -20,7 +20,7 @@ namespace TerrainTools.Visualization {
                 secondary = new Overlay(secondaryTransform);
                 tertiary = new Overlay(tetriaryTransform);
                 hoverInfo = new HoverInfo(secondaryTransform);
-                tertiary.StartColor = new Color(255, 255, 255);
+                tertiary.StartColor = Color.white;
 
                 primary.Enabled = false;
                 secondary.Enabled = false;
