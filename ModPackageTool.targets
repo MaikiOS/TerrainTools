@@ -2,7 +2,7 @@
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
 	<PropertyGroup>
 		<PackageDir>$(ProjectDir)Package</PackageDir>
-		<PublishDir>$(PojectDir)Publish</PublishDir>
+		<PublishDir>$(ProjectDir)Publish</PublishDir>
 		<ProjectResourcesDir>$(ProjectDir)\Resources</ProjectResourcesDir>
 		<SolutionResourcesDir>$(SolutionDir)\Resources</SolutionResourcesDir>
 	</PropertyGroup>
@@ -140,6 +140,7 @@
 			<OutputResources>$(PublishDir)\Nexus</OutputResources>
 		</PropertyGroup>
 		<Message Text="Creating Nexus package" Importance="high" />
+		<RemoveDir Directories="$(PublishDir)\Nexus" />
 		<MakeDir Directories="$(PublishDir)\Nexus" />
 		<MakeDir Directories="$(OutputResources)" />
 
@@ -185,6 +186,7 @@
 		</PropertyGroup>
 
 		<Message Text="Creating ThunderStore package" Importance="high" />
+		<RemoveDir Directories="$(PublishDir)\ThunderStore" />
 		<MakeDir Directories="$(PublishDir)\ThunderStore" />
 		<MakeDir Directories="$(OutputResources)" />
 
@@ -193,6 +195,7 @@
 
 		<Message Text="Copying $(ProjectDir)README.md to $(PublishDir)\ThunderStore" Importance="high" Condition="Exists('$(ProjectDir)README.md')" />
 		<Copy SourceFiles="$(ProjectDir)README.md" DestinationFolder="$(PublishDir)\ThunderStore" Condition="Exists('$(ProjectDir)README.md')" />
+		<Copy SourceFiles="$(ProjectDir)LICENSE" DestinationFolder="$(PublishDir)\ThunderStore" Condition="Exists('$(ProjectDir)LICENSE')" />
 
 		<Message Text="Copying Package files to $(PublishDir)\ThunderStore" Importance="high" />
 		<Message
