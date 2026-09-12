@@ -72,39 +72,6 @@ namespace TerrainTools.Visualization {
             overlay.LocalPosition = VerticalOffset;
         }
 
-        protected bool SnapToHeightGrid(Overlay overlay) {
-            var terrainOp = GetComponent<TerrainOp>();
-            if (!terrainOp) {
-                return false;
-            }
-
-            heightmaps.Clear();
-            Heightmap.FindHeightmap(transform.position, terrainOp.GetRadius() + 1f, heightmaps);
-            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
-            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
-            foreach (var heightmap in heightmaps) {
-                if (!PreciseTerrainModifier.TryGetHeightWorldBounds(
-                    heightmap,
-                    transform.position,
-                    terrainOp.m_settings,
-                    out var zoneMin,
-                    out var zoneMax
-                )) {
-                    continue;
-                }
-                min = Vector2.Min(min, zoneMin);
-                max = Vector2.Max(max, zoneMax);
-            }
-
-            if (float.IsPositiveInfinity(min.x)) {
-                overlay.LocalPosition = VerticalOffset;
-                return false;
-            }
-
-            SetBounds(overlay, min, max);
-            return true;
-        }
-
         protected void SnapToPaintGrid(Overlay core, Overlay feather) {
             heightmaps.Clear();
             Heightmap.FindHeightmap(

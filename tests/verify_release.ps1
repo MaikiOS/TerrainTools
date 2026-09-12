@@ -63,14 +63,13 @@ Assert-True ($overlayVisualizerSource -match "Heightmap\.FindHeightmap\([\s\S]*?
 Assert-True ($overlayVisualizerSource -match "size\.x / maxSize" -and $overlayVisualizerSource -match "size\.y / maxSize") "paint preview loses rectangular bounds at zone edges"
 Assert-True ($preciseSource -match "HarmonyPatch\(typeof\(TerrainOp\.Settings\), nameof\(TerrainOp\.Settings\.GetRadius\)\)") "precision radius fix does not patch the Settings method used by terrain operations"
 Assert-True ($preciseSource -match "__instance\.m_paintCleared && IsPrecisionModifier\(__instance\.m_paintRadius\)") "paint-only operations still collapse to radius zero"
-Assert-True ($toolVisualizersSource -match "class LevelGroundOverlayVisualizer[\s\S]*?primary\.Enabled = false;[\s\S]*?SnapToHeightGrid\(secondary\)[\s\S]*?tertiary\.Enabled = false;") "level square does not show only its height grid"
-Assert-True ($toolVisualizersSource -match "class RaiseGroundOverlayVisualizer[\s\S]*?SnapToHeightGrid\(secondary\)") "raise square does not use the height grid preview"
+Assert-True ($toolVisualizersSource -match "class LevelGroundOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?secondary\.Enabled = true;[\s\S]*?tertiary\.Enabled = true;[\s\S]*?class RaiseGroundOverlayVisualizer") "level square does not use the shared paint footprint"
+Assert-True ($toolVisualizersSource -match "class RaiseGroundOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?secondary\.StartSize = tertiary\.StartSize;[\s\S]*?secondary\.LocalScale = tertiary\.LocalScale;[\s\S]*?secondary\.Position = tertiary\.Position;[\s\S]*?primary\.Enabled = false;[\s\S]*?class SquarePathOverlayVisualizer") "raise square does not show matching base and target paint footprints"
 Assert-True ($toolVisualizersSource -match "class SquarePathOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class CultivateOverlayVisualizer") "square paths do not show only their paint grid"
 Assert-True ($toolVisualizersSource -match "class CultivateOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class SeedGrassOverlayVisualizer") "square cultivation does not show only its paint grid"
 Assert-True ($toolVisualizersSource -match "class SeedGrassOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?class RemoveModificationsOverlayVisualizer") "replant square does not use the paint grid preview"
 Assert-True ($toolVisualizersSource -notmatch "SpeedUp\(secondary\)[\s\S]{0,120}VisualizeTerraformingBounds\(secondary\)") "exact level frame is still animated"
 Assert-True ($toolVisualizersSource -match "localPosition\.y = VerticalOffset\.y \+ GroundLevelSpinner\.Value") "raise target frame loses its vertical overlay offset"
-Assert-True ($preciseSource -match "settings\.m_square \? Mathf\.CeilToInt\(levelRadius\) : Mathf\.FloorToInt\(levelRadius\)") "level preview does not match square and circular radius rules"
 Assert-True ($overlayVisualizerSource -match "TexelScale\(heightmap\.m_width, heightmap\.m_scale\) \* 0\.5f") "paint feather does not follow the rendered texel size"
 Assert-True (([regex]::Matches($toolVisualizersSource, "tertiary\.StartColor = new Color\(1f, 1f, 1f, 0\.3f\)")).Count -ge 2) "paint feather is not visually distinguished"
 
@@ -94,25 +93,6 @@ Assert-True ([Math]::Abs($zoneUnionWidth - 3.9384615384615387) -lt 1e-5) "paint 
 
 $emptyBounds = Get-AxisBounds 0 65 64
 Assert-True (-not $emptyBounds[0]) "empty neighboring Heightmap bounds are treated as painted"
-
-$getVertexAxisBounds = $mathType.GetMethod("TryGetVertexAxisBounds", [Reflection.BindingFlags] "Static,NonPublic")
-function Get-VertexAxisBounds([float]$ZoneCenter, [int]$Center, [int]$Radius) {
-    $arguments = [object[]] @(64, [float] 1, $ZoneCenter, $Center, $Radius, [float] 0, [float] 0)
-    $valid = [bool] $getVertexAxisBounds.Invoke($null, $arguments)
-    return @($valid, [float] $arguments[5], [float] $arguments[6])
-}
-
-$heightCenterBounds = Get-VertexAxisBounds 0 32 1
-Assert-True $heightCenterBounds[0] "central height bounds are invalid"
-Assert-True ([Math]::Abs($heightCenterBounds[1] + 1.5) -lt 1e-6 -and [Math]::Abs($heightCenterBounds[2] - 1.5) -lt 1e-6) "height preview center regression"
-
-$heightWestBounds = Get-VertexAxisBounds 0 64 1
-$heightEastBounds = Get-VertexAxisBounds 64 0 1
-$heightZoneUnionWidth = [Math]::Max($heightWestBounds[2], $heightEastBounds[2]) - [Math]::Min($heightWestBounds[1], $heightEastBounds[1])
-Assert-True ([Math]::Abs($heightZoneUnionWidth - 3) -lt 1e-6) "height preview does not cover both sides of a Heightmap boundary"
-
-$emptyHeightBounds = Get-VertexAxisBounds 0 32 -1
-Assert-True (-not $emptyHeightBounds[0]) "paint-only tools are treated as height operations"
 
 foreach ($manifestPath in @("Package\manifest.json", "Publish\ThunderStore\manifest.json")) {
     $manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot $manifestPath) -Raw | ConvertFrom-Json

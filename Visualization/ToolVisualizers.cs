@@ -10,15 +10,19 @@ namespace TerrainTools.Visualization
         {
             base.Initialize();
             Freeze(secondary);
-            VisualizeTerraformingBounds(secondary);
+            Freeze(tertiary);
+            VisualizeRecoloringBounds(secondary);
+            VisualizeRecoloringBounds(tertiary);
+            tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
         protected override void OnRefresh()
         {
+            SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
             primary.Enabled = false;
-            secondary.Enabled = SnapToHeightGrid(secondary);
-            tertiary.Enabled = false;
+            secondary.Enabled = true;
+            tertiary.Enabled = true;
         }
     }
 
@@ -35,12 +39,12 @@ namespace TerrainTools.Visualization
 
         protected override void OnRefresh()
         {
-            SnapToHeightGrid(secondary);
-            tertiary.StartSize = secondary.StartSize;
-            tertiary.LocalScale = secondary.LocalScale;
-            tertiary.Position = secondary.Position;
+            SnapToPaintGrid(secondary, tertiary);
+            secondary.StartSize = tertiary.StartSize;
+            secondary.LocalScale = tertiary.LocalScale;
+            secondary.Position = tertiary.Position;
             base.OnRefresh();
-            primary.Enabled = true;
+            primary.Enabled = false;
             secondary.Enabled = true;
 
             GroundLevelSpinner.Refresh();

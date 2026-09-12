@@ -450,68 +450,6 @@ namespace TerrainTools.Helpers {
             return true;
         }
 
-        public static int GetHeightRadiusCells(TerrainOp.Settings settings, float vertexScale) {
-            var radius = -1;
-            if (settings.m_level) {
-                var levelRadius = settings.m_levelRadius / vertexScale;
-                radius = Mathf.Max(
-                    radius,
-                    settings.m_square ? Mathf.CeilToInt(levelRadius) : Mathf.FloorToInt(levelRadius)
-                );
-            }
-            if (settings.m_raise) {
-                radius = Mathf.Max(
-                    radius,
-                    settings.m_raiseDelta >= 0f
-                        ? FixedRadius
-                        : Mathf.CeilToInt(settings.m_raiseRadius / vertexScale)
-                );
-            }
-            if (settings.m_smooth) {
-                radius = Mathf.Max(radius, FixedRadius);
-            }
-            return radius;
-        }
-
-        public static bool TryGetHeightWorldBounds(
-            Heightmap heightmap,
-            Vector3 worldPos,
-            TerrainOp.Settings settings,
-            out Vector2 min,
-            out Vector2 max
-        ) {
-            var radius = GetHeightRadiusCells(settings, heightmap.m_scale);
-            heightmap.WorldToVertex(worldPos, out var xPos, out var yPos);
-            var hasX = PaintGridMath.TryGetVertexAxisBounds(
-                heightmap.m_width,
-                heightmap.m_scale,
-                heightmap.transform.position.x,
-                xPos,
-                radius,
-                out var minX,
-                out var maxX
-            );
-            var hasZ = PaintGridMath.TryGetVertexAxisBounds(
-                heightmap.m_width,
-                heightmap.m_scale,
-                heightmap.transform.position.z,
-                yPos,
-                radius,
-                out var minZ,
-                out var maxZ
-            );
-
-            if (!hasX || !hasZ) {
-                min = default;
-                max = default;
-                return false;
-            }
-
-            min = new Vector2(minX, minZ);
-            max = new Vector2(maxX, maxZ);
-            return true;
-        }
-
         public static UnityEngine.Color ResolveColor(TerrainModifier.PaintType paintType) {
             switch (paintType) {
                 case TerrainModifier.PaintType.Dirt:
