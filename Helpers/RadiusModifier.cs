@@ -6,6 +6,7 @@ namespace TerrainTools.Helpers {
     [HarmonyPatch]
     internal static class RadiusModifier {
         private static bool RadiusToolIsInUse = false;
+        private static TerrainOp activeRadiusTool;
         private static float lastOriginalRadius;
         private static float lastModdedRadius;
         private static float lastTotalDelta;
@@ -21,20 +22,15 @@ namespace TerrainTools.Helpers {
             }
 
             if (!__instance.InPlaceMode() || Hud.IsPieceSelectionVisible()) {
-                if (RadiusToolIsInUse) {
-                    RadiusToolIsInUse = false;
-                    lastOriginalRadius = 0;
-                    lastModdedRadius = 0;
-                    lastTotalDelta = 0;
-                    lastGhostScale = Vector3.zero;
-                }
-
+                SelectRadiusTool(null);
                 return;
             }
 
             if (!IsValidSelectedPiece(__instance, out TerrainOp terrainOp)) {
+                SelectRadiusTool(null);
                 return;
             }
+            SelectRadiusTool(terrainOp);
 
             if (ShouldModifyRadius()) {
                 SetRadius(terrainOp, Input.mouseScrollDelta.y * TerrainTools.RadiusScrollScale);
@@ -43,6 +39,16 @@ namespace TerrainTools.Helpers {
             // this is constantly refreshing if FastTools is in use but turns out that bug
             // occurs when using FastTools even without TerrainTools
             RefreshGhostScale(__instance);
+        }
+
+        private static void SelectRadiusTool(TerrainOp terrainOp) {
+            if (activeRadiusTool == terrainOp) return;
+            activeRadiusTool = terrainOp;
+            RadiusToolIsInUse = false;
+            lastOriginalRadius = 0f;
+            lastModdedRadius = 0f;
+            lastTotalDelta = 0f;
+            lastGhostScale = Vector3.zero;
         }
 
         /// <summary>
@@ -160,6 +166,10 @@ namespace TerrainTools.Helpers {
 
             var resetVisualizer = player.m_placementGhost.GetComponent<RemoveModificationsOverlayVisualizer>();
             if (resetVisualizer) {
+                var resetTerrainOp = player.m_placementGhost.GetComponent<TerrainOp>();
+                if (resetTerrainOp) {
+                    resetTerrainOp.m_settings.m_levelRadius = lastModdedRadius;
+                }
                 resetVisualizer.SetScale(lastGhostScale);
                 return;
             }

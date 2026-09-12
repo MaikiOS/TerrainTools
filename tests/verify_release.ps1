@@ -54,6 +54,8 @@ Assert-True ($preciseSource -notmatch "ClutterSystem\.instance\.ResetGrass\(pos,
 Assert-True ($radiusSource -match "RemoveModificationsOverlayVisualizer") "reset tool cannot use the radius modifier"
 Assert-True ($radiusSource -match "delta = Mathf\.Sign\(delta\)") "reset radius is not quantized to terrain cells"
 Assert-True ($radiusSource -match "resetVisualizer\.SetScale\(lastGhostScale\)") "reset frame and cross do not scale together"
+Assert-True ($radiusSource -match "SelectRadiusTool\(terrainOp\)[\s\S]*?activeRadiusTool == terrainOp[\s\S]*?lastTotalDelta = 0f") "radius state leaks between selected terrain tools"
+Assert-True ($radiusSource -match "resetTerrainOp\.m_settings\.m_levelRadius = lastModdedRadius") "reset operation radius is not updated with its preview"
 Assert-True ($pluginSource -match '"HardnessScrollScale",\s*1f') "hardness scroll still uses the slow legacy default"
 Assert-True ($cameraSource -match "Input\.GetKey\(TerrainTools\.HardnessKey\)") "hardness key does not block camera zoom"
 Assert-True ($shovelSource -match "UseCategories = false") "single-action shovel still uses hammer categories"
