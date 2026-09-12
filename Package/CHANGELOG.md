@@ -14,6 +14,7 @@
 					<li>Used the proven paint-mask preview for level and raise tools so their frames match the visible square.</li>
 					<li>Matched the base and target footprints for precise raising, centered them on the height vertex actually modified by Valheim, and added the shared paint preview to square vegetation restoration.</li>
 					<li>Fixed precision operations reporting a zero effective radius after applying their sentinel.</li>
+					<li>Prevented terrain reset from deleting player-built pieces that include terrain modifiers.</li>
 				</ul>
 			</td>
 		</tr>

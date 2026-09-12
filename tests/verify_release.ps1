@@ -25,6 +25,9 @@ $raiseMathSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\Pre
 $heightmapPatchSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Patches\HeightmapPaintGridPatch.cs") -Raw
 $hardnessSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\HardnessModifier.cs") -Raw
 $spinnerSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\GroundLevelSpinner.cs") -Raw
+$iconCacheSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\IconCache.cs") -Raw
+$packageTargets = Get-Content -LiteralPath (Join-Path $ProjectRoot "ModPackageTool.targets") -Raw
+$environmentProps = Get-Content -LiteralPath (Join-Path $ProjectRoot "environment.props") -Raw
 $allSource = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -Filter "*.cs" |
     Where-Object FullName -NotMatch "[\\/](bin|obj)[\\/]" |
     ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
@@ -48,6 +51,8 @@ Assert-True ($preciseSource -match "Reset chunk" -and $preciseSource -match "ver
 Assert-True ($preciseSource -match "GetRadiusPostfix") "reset radius does not select every affected Heightmap"
 Assert-True ($preciseSource -match "m_levelRadius \+ 1f") "reset radius does not include neighboring Heightmaps"
 Assert-True ($preciseSource -match "TerrainModifier\.GetModifiers\(position, radius \+ 1f") "reset does not remove legacy terrain modifiers"
+Assert-True ($preciseSource -match "GetComponentInParent<Piece>" -and $preciseSource -match "GetComponentInParent<WearNTear>") "terrain reset can delete player structures"
+Assert-True ($preciseSource -notmatch "\[HarmonyPatch\(typeof\(PreciseTerrainModifier\)\)\]") "redundant class-level Harmony target returned"
 Assert-True ($preciseSource -match "RemoveTerrainModifications\(__instance, pos, radius\)") "reset radius is not applied to height restoration"
 Assert-True ($preciseSource -match "PaintType\.Reset, radius: radius") "reset radius is not applied to paint restoration"
 Assert-True ($preciseSource -notmatch "ClutterSystem\.instance\.ResetGrass\(pos, radius\)") "reset still clears vegetation across the whole selected area"
@@ -101,6 +106,9 @@ Assert-True ($hardnessSource -match "SelectRaiseTool\(selectedTerrainOp && selec
 Assert-True ($hardnessSource -notmatch "lastDisplayedRaiseHardness = -1;[\s\S]{0,120}SetPower\(__instance, 0\)") "leaving place mode reactivates raise hardness state"
 Assert-True ($hardnessSource -match "CurrentRaisePower\(float defaultPower\)[\s\S]*?RaiseToolIsInUse[\s\S]*?lastModdedRaisePwr") "raise preview cannot read the active slope setting"
 Assert-True ($spinnerSource -match "IsEnableHardnessModifier && Input\.GetKey\(TerrainTools\.HardnessKey\)[\s\S]*?return 0f;[\s\S]*?Input\.GetAxis\(MouseScrollWheel\)") "hardness scroll can still change the height spinner"
+Assert-True ($iconCacheSource -match "AppDomain\.CurrentDomain\.GetAssemblies") "ImageConversion assembly fallback is missing"
+Assert-True ($packageTargets -match "OutputResources\)\\Translations") "debug translations are not deployed"
+Assert-True ($environmentProps -notmatch "VALHEIM_SERVERR") "dedicated-server property typo returned"
 Assert-True ($preciseSource -match "return radius == float\.NegativeInfinity;" -and $preciseSource -match "SettingsPayloadVersion = 1" -and $preciseSource -match "sizeof\(float\) \* 7") "legacy precision flags or the seven-float settings payload changed"
 
 # Native Heightmap IL: height = floor(local / scale + 0.5) + width / 2;

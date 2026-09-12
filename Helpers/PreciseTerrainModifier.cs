@@ -6,7 +6,7 @@ using UnityEngine;
 using static ClutterSystem;
 
 namespace TerrainTools.Helpers {
-    [HarmonyPatch(typeof(PreciseTerrainModifier))]
+    [HarmonyPatch]
     public static class PreciseTerrainModifier {
         public const int FixedRadius = 1;
         public const int FixedPaintRadius = 1;
@@ -97,7 +97,9 @@ namespace TerrainTools.Helpers {
             var modifiers = new List<TerrainModifier>();
             TerrainModifier.GetModifiers(position, radius + 1f, modifiers);
             foreach (var modifier in modifiers) {
-                if (!modifier || !modifier.m_nview) {
+                if (!modifier || !modifier.m_nview
+                    || modifier.GetComponentInParent<Piece>()
+                    || modifier.GetComponentInParent<WearNTear>()) {
                     continue;
                 }
                 modifier.m_nview.ClaimOwnership();

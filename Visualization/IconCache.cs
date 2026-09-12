@@ -57,7 +57,11 @@ namespace TerrainTools.Visualization {
             using MemoryStream buffer = new();
             manifestResourceStream.CopyTo(buffer);
             Texture2D texture = new(0, 0);
-            var loadImage = Type.GetType("UnityEngine.ImageConversion, UnityEngine.ImageConversionModule")?
+            var imageConversion = Type.GetType("UnityEngine.ImageConversion, UnityEngine.ImageConversionModule")
+                ?? AppDomain.CurrentDomain.GetAssemblies()
+                    .Select(assembly => assembly.GetType("UnityEngine.ImageConversion"))
+                    .FirstOrDefault(type => type != null);
+            var loadImage = imageConversion?
                 .GetMethod("LoadImage", new[] { typeof(Texture2D), typeof(byte[]) });
             if (loadImage?.Invoke(null, new object[] { texture, buffer.ToArray() }) is not bool loaded || !loaded) {
                 Log.LogWarning($"Could not decode embedded texture: {resourceName}");
