@@ -147,8 +147,8 @@ namespace TerrainTools.Visualization
         internal void SetScale(Vector3 scale)
         {
             if (primary == null || scale == Vector3.zero) return;
-            primary.StartSize = 2.0f * scale.x;
-            secondary.StartSize = 1.5f * scale.x;
+            primary.LocalScale = scale;
+            secondary.LocalScale = scale;
         }
 
         protected override void Initialize()

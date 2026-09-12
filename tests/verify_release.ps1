@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "1.4.6"
+$expectedVersion = "1.4.7"
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "VERIFY FAILED: $Message" }
@@ -61,7 +61,7 @@ Assert-True ($preciseSource -notmatch "ClutterSystem\.instance\.ResetGrass\(pos,
 Assert-True ($radiusSource -match "RemoveModificationsOverlayVisualizer") "reset tool cannot use the radius modifier"
 Assert-True ($radiusSource -match "delta = Mathf\.Sign\(delta\)") "reset radius is not quantized to terrain cells"
 Assert-True ($radiusSource -match "resetVisualizer\.SetScale\(lastGhostScale\)") "reset frame and cross do not scale together"
-Assert-True ($toolVisualizersSource -match 'class RemoveModificationsOverlayVisualizer[\s\S]*?primary\.StartSize = 2\.0f \* scale\.x;[\s\S]*?secondary\.StartSize = 1\.5f \* scale\.x;') "reset preview does not resize emitted particles"
+Assert-True ($toolVisualizersSource -match 'class RemoveModificationsOverlayVisualizer[\s\S]*?primary\.LocalScale = scale;[\s\S]*?secondary\.LocalScale = scale;') "reset preview scaling is not isolated to its overlay transforms"
 Assert-True ($radiusSource -match "SelectRadiusTool\(terrainOp\)[\s\S]*?activeRadiusTool == terrainOp[\s\S]*?lastTotalDelta = 0f") "radius state leaks between selected terrain tools"
 Assert-True ($radiusSource -match "resetTerrainOp\.m_settings\.m_levelRadius = lastModdedRadius") "reset operation radius is not updated with its preview"
 Assert-True ($pluginSource -match '"HardnessScrollScale",\s*1f') "hardness scroll still uses the slow legacy default"

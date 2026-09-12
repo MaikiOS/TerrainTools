@@ -1,7 +1,7 @@
 ﻿{
   "name": "AdvancedTerrainModifiersCompatible",
   "description": "Maintained AdvancedTerrainModifiers compatibility fork for current Valheim, Jotunn and EpicLoot.",
-  "version_number": "1.4.6",
+  "version_number": "1.4.7",
   "website_url": "https://github.com/MaikiOS/TerrainTools",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2350",

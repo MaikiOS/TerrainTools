@@ -5,6 +5,15 @@
 			<th align="center">Notes</th>
 		</tr>
 		<tr>
+			<td align="center">1.4.7</td>
+			<td align="left">
+				<ul>
+					<li>Reverted the terrain-restoration radius preview change that polluted shared overlay state and broke tool previews after switching the build menu with Tab.</li>
+					<li>Restored the isolated square frame and cross preview while keeping the Gale-compatible embedded translations.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
 			<td align="center">1.4.6</td>
 			<td align="left">
 				<ul>
