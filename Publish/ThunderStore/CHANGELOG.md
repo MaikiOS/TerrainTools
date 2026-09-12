@@ -12,7 +12,7 @@
 					<li>Aligned the preview with Valheim's rendered 65x65 mask spacing and included its bilinear transition area.</li>
 					<li>Added a translucent outer frame to distinguish the texture-filtering feather from the paint core.</li>
 					<li>Used the proven paint-mask preview for level and raise tools so their frames match the visible square.</li>
-					<li>Matched the base and target footprints for precise raising and added the shared paint preview to square vegetation restoration.</li>
+					<li>Matched the base and target footprints for precise raising, centered them on the height vertex actually modified by Valheim, and added the shared paint preview to square vegetation restoration.</li>
 					<li>Fixed precision operations reporting a zero effective radius after applying their sentinel.</li>
 				</ul>
 			</td>

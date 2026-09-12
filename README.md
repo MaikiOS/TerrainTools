@@ -13,7 +13,7 @@ Version 1.4.5 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English a
 - Aligns the preview to Valheim's rendered 65x65 paint-mask texels instead of the mismatched one-metre vertex-grid inverse.
 - Shows a bright core frame plus a wider translucent frame for the texture-filtering feather; mip filtering can still soften the edge at distance.
 - Uses the proven paint-mask preview for level and raise tools so their frames match the visible square.
-- Shows matching base and target footprints for precise raising; square vegetation restoration also uses the shared paint preview.
+- Shows matching base and target footprints for precise raising, centered on the height vertex actually modified by Valheim; square vegetation restoration also uses the shared paint preview.
 - Prevents precision paint, raise and smooth operations from reporting a zero effective radius after their sentinel is applied.
 
 ## Version 1.4.4

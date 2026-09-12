@@ -43,6 +43,18 @@ namespace TerrainTools.Visualization
             secondary.StartSize = tertiary.StartSize;
             secondary.LocalScale = tertiary.LocalScale;
             secondary.Position = tertiary.Position;
+
+            var heightmap = Heightmap.FindHeightmap(transform.position);
+            if (heightmap)
+            {
+                heightmap.WorldToVertex(transform.position, out var x, out var z);
+                var snappedPosition = secondary.Position;
+                snappedPosition.x = heightmap.transform.position.x + (x - heightmap.m_width / 2) * heightmap.m_scale;
+                snappedPosition.z = heightmap.transform.position.z + (z - heightmap.m_width / 2) * heightmap.m_scale;
+                secondary.Position = snappedPosition;
+                tertiary.Position = snappedPosition;
+            }
+
             base.OnRefresh();
             primary.Enabled = false;
             secondary.Enabled = true;
