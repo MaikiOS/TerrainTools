@@ -14,6 +14,7 @@ $pluginSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "TerrainTools.c
 $initSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\InitManager.cs") -Raw
 $preciseSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\PreciseTerrainModifier.cs") -Raw
 $radiusSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\RadiusModifier.cs") -Raw
+$playerSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Patches\PlayerPatch.cs") -Raw
 $cameraSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Patches\GameCameraPatch.cs") -Raw
 $shovelSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\Shovel.cs") -Raw
 $overlaySource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\Overlay.cs") -Raw
@@ -63,9 +64,15 @@ Assert-True ($overlayVisualizerSource -match "Heightmap\.FindHeightmap\([\s\S]*?
 Assert-True ($overlayVisualizerSource -match "size\.x / maxSize" -and $overlayVisualizerSource -match "size\.y / maxSize") "paint preview loses rectangular bounds at zone edges"
 Assert-True ($preciseSource -match "HarmonyPatch\(typeof\(TerrainOp\.Settings\), nameof\(TerrainOp\.Settings\.GetRadius\)\)") "precision radius fix does not patch the Settings method used by terrain operations"
 Assert-True ($preciseSource -match "__instance\.m_paintCleared && IsPrecisionModifier\(__instance\.m_paintRadius\)") "paint-only operations still collapse to radius zero"
+Assert-True ($playerSource -match "heightmap\.WorldToVertex\(position, out var x, out var z\)") "square placement does not use native heightmap snapping"
+Assert-True ($playerSource -match "position\.x = heightmap\.transform\.position\.x \+ \(x - heightmap\.m_width / 2\) \* heightmap\.m_scale" -and $playerSource -match "position\.z = heightmap\.transform\.position\.z \+ \(z - heightmap\.m_width / 2\) \* heightmap\.m_scale") "square placement does not invert the native height vertex coordinates"
+Assert-True ($playerSource -notmatch "RoundToNearest") "square placement still overrides native negative-half rounding"
+Assert-True ($overlayVisualizerSource -match "class HoverInfoEnabled[\s\S]*?var pos = transform\.position;") "square hover coordinates do not report the logical operation center"
 Assert-True ($toolVisualizersSource -match "class LevelGroundOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?secondary\.Enabled = true;[\s\S]*?tertiary\.Enabled = true;[\s\S]*?class RaiseGroundOverlayVisualizer") "level square does not use the shared paint footprint"
-Assert-True ($toolVisualizersSource -match "class RaiseGroundOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?secondary\.StartSize = tertiary\.StartSize;[\s\S]*?secondary\.LocalScale = tertiary\.LocalScale;[\s\S]*?secondary\.Position = tertiary\.Position;[\s\S]*?primary\.Enabled = false;[\s\S]*?class SquarePathOverlayVisualizer") "raise square does not show matching base and target paint footprints"
-Assert-True ($toolVisualizersSource -match "class RaiseGroundOverlayVisualizer[\s\S]*?WorldToVertex\(transform\.position, out var x, out var z\)[\s\S]*?heightmap\.transform\.position\.x \+ \(x - heightmap\.m_width / 2\) \* heightmap\.m_scale[\s\S]*?heightmap\.transform\.position\.z \+ \(z - heightmap\.m_width / 2\) \* heightmap\.m_scale[\s\S]*?tertiary\.Position = snappedPosition;") "raise square is not centered on the height vertex modified by Valheim"
+$raiseVisualizerSource = [regex]::Match($toolVisualizersSource, "class RaiseGroundOverlayVisualizer[\s\S]*?(?=class SquarePathOverlayVisualizer)").Value
+Assert-True ($raiseVisualizerSource -notmatch "SnapToPaintGrid|WorldToVertex") "raise preview still has a separate paint or height snap"
+Assert-True ($raiseVisualizerSource -match "secondary\.StartSize = 2f \* PreciseTerrainModifier\.FixedRadius \* vertexScale" -and $raiseVisualizerSource -match "tertiary\.StartSize = 2f \* \(PreciseTerrainModifier\.FixedRadius \+ 1\) \* vertexScale") "raise preview does not distinguish the 2m top from the 4m affected footprint"
+Assert-True ($raiseVisualizerSource -match "secondary\.LocalScale = Vector3\.one;" -and $raiseVisualizerSource -match "tertiary\.LocalScale = Vector3\.one;") "raise preview inherits a scaled paint frame"
 Assert-True ($toolVisualizersSource -match "class SquarePathOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class CultivateOverlayVisualizer") "square paths do not show only their paint grid"
 Assert-True ($toolVisualizersSource -match "class CultivateOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class SeedGrassOverlayVisualizer") "square cultivation does not show only its paint grid"
 Assert-True ($toolVisualizersSource -match "class SeedGrassOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?class RemoveModificationsOverlayVisualizer") "replant square does not use the paint grid preview"
@@ -73,6 +80,21 @@ Assert-True ($toolVisualizersSource -notmatch "SpeedUp\(secondary\)[\s\S]{0,120}
 Assert-True ($toolVisualizersSource -match "localPosition\.y = VerticalOffset\.y \+ GroundLevelSpinner\.Value") "raise target frame loses its vertical overlay offset"
 Assert-True ($overlayVisualizerSource -match "TexelScale\(heightmap\.m_width, heightmap\.m_scale\) \* 0\.5f") "paint feather does not follow the rendered texel size"
 Assert-True (([regex]::Matches($toolVisualizersSource, "tertiary\.StartColor = new Color\(1f, 1f, 1f, 0\.3f\)")).Count -ge 2) "paint feather is not visually distinguished"
+
+# Native Heightmap IL: height = floor(local / scale + 0.5) + width / 2;
+# mask = floor(local / scale + 0.5 + (width + 1) / 2). Width 64 has half-index 32.
+$snapCases = @(@(0, 0), @(-0.5001, -1), @(-0.5, 0), @(-0.4999, 0), @(0.4999, 0), @(0.5, 1), @(0.5001, 1), @(-1.5, -1), @(1.5, 2))
+foreach ($zoneCenter in @(-64, 0, 64)) {
+    foreach ($case in $snapCases) {
+        $world = [float] ($zoneCenter + $case[0])
+        $local = [float] ($world - $zoneCenter)
+        $vertexIndex = [int] [Math]::Floor($local + 0.5) + 32
+        $maskIndex = [int] [Math]::Floor($local + 0.5 + 32)
+        $snapped = $zoneCenter + ($vertexIndex - 32)
+        Assert-True ($vertexIndex -eq $maskIndex) "height/paint logical indices differ at x=$world"
+        Assert-True ($snapped -eq $zoneCenter + $case[1]) "native snap/inverse regression at x=$world"
+    }
+}
 
 $mathType = Add-Type -TypeDefinition $paintGridMathSource -PassThru
 $getAxisBounds = $mathType.GetMethod("TryGetAxisBounds", [Reflection.BindingFlags] "Static,NonPublic")

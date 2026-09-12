@@ -144,7 +144,7 @@ namespace TerrainTools.Visualization {
             hoverInfo.Enabled = TerrainTools.IsHoverInforEnabled;
             if (hoverInfo.Enabled) {
                 hoverInfo.RotateToPlayer();
-                var pos = secondary.Position - VerticalOffset;
+                var pos = transform.position;
                 hoverInfo.Text = $"x: {pos.x:0}, y: {pos.y:0.000}, z: {pos.z:0}";
             }
         }

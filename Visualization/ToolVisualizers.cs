@@ -35,25 +35,17 @@ namespace TerrainTools.Visualization
             Freeze(tertiary);
             VisualizeTerraformingBounds(secondary);
             VisualizeTerraformingBounds(tertiary);
+            secondary.LocalScale = Vector3.one;
+            tertiary.LocalScale = Vector3.one;
         }
 
         protected override void OnRefresh()
         {
-            SnapToPaintGrid(secondary, tertiary);
-            secondary.StartSize = tertiary.StartSize;
-            secondary.LocalScale = tertiary.LocalScale;
-            secondary.Position = tertiary.Position;
-
             var heightmap = Heightmap.FindHeightmap(transform.position);
-            if (heightmap)
-            {
-                heightmap.WorldToVertex(transform.position, out var x, out var z);
-                var snappedPosition = secondary.Position;
-                snappedPosition.x = heightmap.transform.position.x + (x - heightmap.m_width / 2) * heightmap.m_scale;
-                snappedPosition.z = heightmap.transform.position.z + (z - heightmap.m_width / 2) * heightmap.m_scale;
-                secondary.Position = snappedPosition;
-                tertiary.Position = snappedPosition;
-            }
+            var vertexScale = heightmap ? heightmap.m_scale : 1f;
+            // The modified vertices span the top; adjacent triangles extend the footprint by one cell.
+            secondary.StartSize = 2f * PreciseTerrainModifier.FixedRadius * vertexScale;
+            tertiary.StartSize = 2f * (PreciseTerrainModifier.FixedRadius + 1) * vertexScale;
 
             base.OnRefresh();
             primary.Enabled = false;
