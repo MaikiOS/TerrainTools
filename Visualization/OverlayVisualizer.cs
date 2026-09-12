@@ -11,7 +11,7 @@ namespace TerrainTools.Visualization {
         protected Overlay secondary;
         protected Overlay tertiary;
         protected HoverInfo hoverInfo;
-        private readonly List<Heightmap> paintHeightmaps = new();
+        private readonly List<Heightmap> heightmaps = new();
 
         internal static readonly Vector3 VerticalOffset = new(0, 0.075f, 0);
 
@@ -72,14 +72,52 @@ namespace TerrainTools.Visualization {
             overlay.LocalPosition = VerticalOffset;
         }
 
+        protected bool HasPaintOperation() {
+            var terrainOp = GetComponent<TerrainOp>();
+            return terrainOp && terrainOp.m_settings.m_paintCleared;
+        }
+
+        protected bool SnapToHeightGrid(Overlay overlay) {
+            var terrainOp = GetComponent<TerrainOp>();
+            if (!terrainOp) {
+                return false;
+            }
+
+            heightmaps.Clear();
+            Heightmap.FindHeightmap(transform.position, terrainOp.GetRadius() + 1f, heightmaps);
+            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            foreach (var heightmap in heightmaps) {
+                if (!PreciseTerrainModifier.TryGetHeightWorldBounds(
+                    heightmap,
+                    transform.position,
+                    terrainOp.m_settings,
+                    out var zoneMin,
+                    out var zoneMax
+                )) {
+                    continue;
+                }
+                min = Vector2.Min(min, zoneMin);
+                max = Vector2.Max(max, zoneMax);
+            }
+
+            if (float.IsPositiveInfinity(min.x)) {
+                overlay.LocalPosition = VerticalOffset;
+                return false;
+            }
+
+            SetBounds(overlay, min, max);
+            return true;
+        }
+
         protected void SnapToPaintGrid(Overlay core, Overlay feather) {
-            paintHeightmaps.Clear();
+            heightmaps.Clear();
             Heightmap.FindHeightmap(
                 transform.position,
                 PreciseTerrainModifier.FixedPaintRadius,
-                paintHeightmaps
+                heightmaps
             );
-            if (paintHeightmaps.Count == 0) {
+            if (heightmaps.Count == 0) {
                 core.LocalPosition = VerticalOffset;
                 feather.LocalPosition = VerticalOffset;
                 return;
@@ -88,7 +126,7 @@ namespace TerrainTools.Visualization {
             var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
             var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
             var featherWidth = 0f;
-            foreach (var heightmap in paintHeightmaps) {
+            foreach (var heightmap in heightmaps) {
                 if (!PreciseTerrainModifier.TryGetPaintMaskWorldBounds(
                     heightmap,
                     transform.position,
@@ -112,11 +150,11 @@ namespace TerrainTools.Visualization {
                 return;
             }
 
-            SetPaintBounds(core, min, max);
-            SetPaintBounds(feather, min - Vector2.one * featherWidth, max + Vector2.one * featherWidth);
+            SetBounds(core, min, max);
+            SetBounds(feather, min - Vector2.one * featherWidth, max + Vector2.one * featherWidth);
         }
 
-        private void SetPaintBounds(Overlay overlay, Vector2 min, Vector2 max) {
+        private void SetBounds(Overlay overlay, Vector2 min, Vector2 max) {
             var size = max - min;
             var maxSize = Mathf.Max(size.x, size.y);
             overlay.StartSize = maxSize;

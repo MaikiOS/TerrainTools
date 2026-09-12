@@ -9,15 +9,26 @@ namespace TerrainTools.Visualization
         protected override void Initialize()
         {
             base.Initialize();
-            SpeedUp(secondary);
+            Freeze(primary);
+            Freeze(secondary);
+            Freeze(tertiary);
+            VisualizeRecoloringBounds(primary);
             VisualizeTerraformingBounds(secondary);
+            VisualizeRecoloringBounds(tertiary);
+            secondary.StartColor = new Color(1f, 0.85f, 0.1f, 0.8f);
+            tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
         protected override void OnRefresh()
         {
             base.OnRefresh();
-            primary.Enabled = false;
-            secondary.Enabled = true;
+            secondary.Enabled = SnapToHeightGrid(secondary);
+            primary.Enabled = HasPaintOperation();
+            tertiary.Enabled = primary.Enabled;
+            if (primary.Enabled)
+            {
+                SnapToPaintGrid(primary, tertiary);
+            }
         }
     }
 
@@ -34,16 +45,22 @@ namespace TerrainTools.Visualization
 
         protected override void OnRefresh()
         {
+            SnapToHeightGrid(secondary);
+            tertiary.StartSize = secondary.StartSize;
+            tertiary.LocalScale = secondary.LocalScale;
+            tertiary.Position = secondary.Position;
             base.OnRefresh();
             primary.Enabled = true;
             secondary.Enabled = true;
 
             GroundLevelSpinner.Refresh();
-            secondary.LocalPosition = new Vector3(0f, GroundLevelSpinner.Value, 0f);
+            var localPosition = secondary.LocalPosition;
+            localPosition.y = VerticalOffset.y + GroundLevelSpinner.Value;
+            secondary.LocalPosition = localPosition;
             var pos = secondary.Position - VerticalOffset;
             if (GroundLevelSpinner.Value > 0f)
             {
-                var deltaH = secondary.LocalPosition.y;
+                var deltaH = GroundLevelSpinner.Value;
                 hoverInfo.Text = $"x: {pos.x:0}, y: {pos.y - deltaH:0.000}, z: {pos.z:0}\n\nh: +{deltaH:0.000}";
             }
             else
@@ -60,10 +77,13 @@ namespace TerrainTools.Visualization
         protected override void Initialize()
         {
             base.Initialize();
+            Freeze(primary);
             Freeze(secondary);
             Freeze(tertiary);
+            VisualizeTerraformingBounds(primary);
             VisualizeRecoloringBounds(secondary);
             VisualizeRecoloringBounds(tertiary);
+            primary.StartColor = new Color(1f, 0.85f, 0.1f, 0.8f);
             tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
@@ -71,7 +91,7 @@ namespace TerrainTools.Visualization
         {
             SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
-            primary.Enabled = false;
+            primary.Enabled = SnapToHeightGrid(primary);
             secondary.Enabled = true;
             tertiary.Enabled = true;
         }
@@ -82,10 +102,13 @@ namespace TerrainTools.Visualization
         protected override void Initialize()
         {
             base.Initialize();
+            Freeze(primary);
             Freeze(secondary);
             Freeze(tertiary);
+            VisualizeTerraformingBounds(primary);
             VisualizeRecoloringBounds(secondary);
             VisualizeRecoloringBounds(tertiary);
+            primary.StartColor = new Color(1f, 0.85f, 0.1f, 0.8f);
             tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
@@ -93,7 +116,7 @@ namespace TerrainTools.Visualization
         {
             SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
-            primary.Enabled = false;
+            primary.Enabled = SnapToHeightGrid(primary);
             secondary.Enabled = true;
             tertiary.Enabled = true;
             hoverInfo.Color = secondary.Color;
@@ -106,7 +129,10 @@ namespace TerrainTools.Visualization
         {
             base.Initialize();
             Freeze(secondary);
+            Freeze(tertiary);
             VisualizeRecoloringBounds(secondary);
+            VisualizeRecoloringBounds(tertiary);
+            tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
             // Might be able to remove these lines?
             primary.StartSize = 4.0f;
             primary.LocalPosition = new Vector3(0.0f, 2.5f, 0.0f);
@@ -114,9 +140,11 @@ namespace TerrainTools.Visualization
 
         protected override void OnRefresh()
         {
+            SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
             primary.Enabled = true;
             secondary.Enabled = true;
+            tertiary.Enabled = true;
         }
     }
 

@@ -214,6 +214,15 @@ namespace TerrainTools.Helpers {
             settings.m_paintCleared = UpdateValueIfNeeded(settings.m_paintCleared, toolDB.clearPaint);
             settings.m_paintRadius = UpdateValueIfNeeded(settings.m_paintRadius, toolDB.paintRadius);
 
+            Log.LogInfo(
+                $"TerrainOp {toolDB.name}: level={settings.m_level}/{settings.m_levelRadius}, " +
+                $"raise={settings.m_raise}/{settings.m_raiseRadius}/{settings.m_raiseDelta}, " +
+                $"smooth={settings.m_smooth}/{settings.m_smoothRadius}, " +
+                $"paint={settings.m_paintCleared}/{settings.m_paintRadius}, square={settings.m_square}, " +
+                $"halfOffset={settings.m_halfOffset}",
+                LogLevel.Low
+            );
+
             // apply custom visualization overlay if desired
             if (toolDB.overlayType != null) {
                 toolPrefab.AddComponent(toolDB.overlayType);
