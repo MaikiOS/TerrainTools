@@ -5,7 +5,7 @@ namespace TerrainTools.Visualization
     public class Overlay
     {
         private GameObject GameObject { get; }
-        private readonly ParticleSystem.Particle[] particles = new ParticleSystem.Particle[2];
+        private ParticleSystem.Particle[] particles = new ParticleSystem.Particle[2];
         private Transform Transform { get; }
 
         public ParticleSystem ps { get; }
@@ -60,7 +60,18 @@ namespace TerrainTools.Visualization
         public float StartSize
         {
             get { return psm.startSize.constant; }
-            set { var psMain = ps.main; psMain.startSize = value; }
+            set
+            {
+                if (Mathf.Approximately(psm.startSize.constant, value)) return;
+
+                var psMain = ps.main;
+                psMain.startSize = value;
+                if (particles.Length < ps.particleCount)
+                    particles = new ParticleSystem.Particle[ps.particleCount];
+                var count = ps.GetParticles(particles, particles.Length);
+                for (var i = 0; i < count; i++) particles[i].startSize = value;
+                if (count > 0) ps.SetParticles(particles, count);
+            }
         }
 
         public float StartSpeed

@@ -2,7 +2,6 @@ using System;
 
 namespace TerrainTools.Helpers {
     internal static class PreciseRaiseMath {
-        internal const int TopRadius = 1;
         internal const int ModifiedRadius = 2;
         internal const int InfluenceRadius = 3;
         internal const float MinPower = 0.05f;
@@ -24,12 +23,21 @@ namespace TerrainTools.Helpers {
 
         internal static float Weight(int dx, int dz, float power) {
             var distance = Math.Max(Math.Abs(dx), Math.Abs(dz));
-            if (distance <= TopRadius) return 1f;
             if (distance >= InfluenceRadius) return 0f;
 
-            // Match the existing raise-hardness limits; older prefabs may have zero power.
+            var slopePivot = SlopePivot(power);
+            if (distance <= slopePivot) return 1f;
+            return (InfluenceRadius - distance) / (InfluenceRadius - slopePivot);
+        }
+
+        internal static float SlopePivot(float power) {
             power = float.IsNaN(power) ? MaxPower : Math.Max(MinPower, Math.Min(MaxPower, power));
-            return (float) Math.Pow((InfluenceRadius - distance) / (float) (InfluenceRadius - TopRadius), power);
+            var hardness = (MaxPower - power) / (MaxPower - MinPower);
+            return ModifiedRadius * hardness;
+        }
+
+        internal static int TopVertexRadius(float power) {
+            return (int) Math.Floor(SlopePivot(power) + 0.0001f);
         }
     }
 }

@@ -48,16 +48,16 @@ namespace TerrainTools.Helpers {
                     lastDisplayedSmoothHardness = -1;
                 }
 
-                if (RaiseToolIsInUse) {
-                    RaiseToolIsInUse = false;
-                    activeRaiseTool = null;
-                    lastModdedRaisePwr = 0;
-                    lastTotalRaiseDelta = 0;
-                    lastDisplayedRaiseHardness = -1;
-                }
+                SelectRaiseTool(null);
 
                 return;
             }
+
+            var selectedPiece = __instance.GetSelectedPiece();
+            var selectedTerrainOp = selectedPiece && selectedPiece.gameObject
+                ? selectedPiece.gameObject.GetComponent<TerrainOp>()
+                : null;
+            SelectRaiseTool(selectedTerrainOp && selectedTerrainOp.m_settings.m_raise ? selectedTerrainOp : null);
 
             if (ShouldModifyHardness()) {
                 SetPower(__instance, Input.mouseScrollDelta.y * TerrainTools.HardnessScrollScale);
@@ -67,6 +67,21 @@ namespace TerrainTools.Helpers {
 
         internal static bool ShouldModifyHardness() {
             return TerrainTools.IsEnableHardnessModifier && Input.GetKey(TerrainTools.HardnessKey) && Input.mouseScrollDelta.y != 0;
+        }
+
+        internal static float CurrentRaisePower(float defaultPower) {
+            return RaiseToolIsInUse
+                ? lastModdedRaisePwr
+                : ModifyRaisePower(defaultPower, 0f);
+        }
+
+        private static void SelectRaiseTool(TerrainOp terrainOp) {
+            if (activeRaiseTool == terrainOp) return;
+            activeRaiseTool = terrainOp;
+            RaiseToolIsInUse = false;
+            lastModdedRaisePwr = 0f;
+            lastTotalRaiseDelta = 0f;
+            lastDisplayedRaiseHardness = -1f;
         }
 
 
@@ -150,12 +165,7 @@ namespace TerrainTools.Helpers {
                 return;
             }
 
-            if (activeRaiseTool != terrainOp) {
-                activeRaiseTool = terrainOp;
-                RaiseToolIsInUse = false;
-                lastTotalRaiseDelta = 0f;
-                lastDisplayedRaiseHardness = -1f;
-            }
+            SelectRaiseTool(terrainOp);
 
             delta = ConvertSmoothDeltaToRaiseDelta(delta);
 

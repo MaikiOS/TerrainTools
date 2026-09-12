@@ -28,7 +28,8 @@ namespace TerrainTools.Helpers {
 
             var halfWorldSize = terrainWidth * vertexScale * 0.5f;
             var zoneMin = zoneCenter - halfWorldSize;
-            // The experimental render UVs place each texel center on its height vertex.
+            // The mask is bilinearly sampled between texel centres. The core frame
+            // joins the painted centres; OverlayVisualizer adds the one-cell blend.
             min = zoneMin + firstPaintedTexel * vertexScale;
             max = zoneMin + lastPaintedTexel * vertexScale;
             return true;

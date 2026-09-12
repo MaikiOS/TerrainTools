@@ -66,6 +66,7 @@ Assert-True ($heightmapPatchSource -match "HarmonyPatch\(typeof\(Heightmap\), na
 Assert-True ($heightmapPatchSource -match "m_isDistantLod" -and $heightmapPatchSource -match "vertexCount != side \* side") "paint UV correction does not guard non-native mesh layouts"
 Assert-True ($heightmapPatchSource -notmatch "SetVertices|SetColors|SetIndices|m_paintMask|m_modifiedPaint") "render UV correction changes geometry or saved paint data"
 Assert-True ($overlayVisualizerSource -match "TryGetPaintMaskWorldBounds") "paint preview does not use the shared render-grid geometry"
+Assert-True ($overlaySource -match "particles\.Length < ps\.particleCount[\s\S]*?new ParticleSystem\.Particle\[ps\.particleCount\][\s\S]*?GetParticles\(particles, particles\.Length\)[\s\S]*?particles\[i\]\.startSize = value[\s\S]*?SetParticles\(particles, count\)") "dynamic overlay size does not update every existing particle"
 Assert-True ($overlayVisualizerSource -notmatch "VertexMaskToWorld") "paint preview still uses the mismatched vanilla vertex-grid inverse"
 Assert-True ($overlayVisualizerSource -match "Heightmap\.FindHeightmap\([\s\S]*?heightmaps") "grid previews do not include every affected Heightmap"
 Assert-True ($overlayVisualizerSource -match "size\.x / maxSize" -and $overlayVisualizerSource -match "size\.y / maxSize") "paint preview loses rectangular bounds at zone edges"
@@ -78,7 +79,7 @@ Assert-True ($overlayVisualizerSource -match "class HoverInfoEnabled[\s\S]*?var 
 Assert-True ($toolVisualizersSource -match "class LevelGroundOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?secondary\.Enabled = true;[\s\S]*?tertiary\.Enabled = true;[\s\S]*?class RaiseGroundOverlayVisualizer") "level square does not use the shared paint footprint"
 $raiseVisualizerSource = [regex]::Match($toolVisualizersSource, "class RaiseGroundOverlayVisualizer[\s\S]*?(?=class SquarePathOverlayVisualizer)").Value
 Assert-True ($raiseVisualizerSource -notmatch "SnapToPaintGrid|WorldToVertex") "raise preview still has a separate paint or height snap"
-Assert-True ($raiseVisualizerSource -match "secondary\.StartSize = 2f \* PreciseRaiseMath\.TopRadius \* vertexScale" -and $raiseVisualizerSource -match "tertiary\.StartSize = 2f \* PreciseRaiseMath\.InfluenceRadius \* vertexScale") "raise preview does not distinguish the 2m top from the 6m influence"
+Assert-True ($raiseVisualizerSource -match "CurrentRaisePower\(terrainOp\.m_settings\.m_raisePower\)" -and $raiseVisualizerSource -match "TopVertexRadius\(raisePower\)" -and $raiseVisualizerSource -match "secondary\.StartSize = Mathf\.Max\(0\.1f, 2f \* topRadius \* vertexScale\)" -and $raiseVisualizerSource -match "tertiary\.StartSize = 2f \* PreciseRaiseMath\.InfluenceRadius \* vertexScale") "raise preview does not show the realizable top inside the fixed 6m influence"
 Assert-True ($raiseVisualizerSource -match "secondary\.LocalScale = Vector3\.one;" -and $raiseVisualizerSource -match "tertiary\.LocalScale = Vector3\.one;") "raise preview inherits a scaled paint frame"
 Assert-True ($toolVisualizersSource -match "class SquarePathOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class CultivateOverlayVisualizer") "square paths do not show only their paint grid"
 Assert-True ($toolVisualizersSource -match "class CultivateOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class SeedGrassOverlayVisualizer") "square cultivation does not show only its paint grid"
@@ -93,8 +94,9 @@ Assert-True ($preciseSource -match "FindExtrema\(xPos, worldSize, PreciseRaiseMa
 Assert-True ($preciseSource -match "GetAxisIndices\(worldSize - 1, x, radius, out xMin, out xMax\)") "height edits do not use the tested zone clipping"
 Assert-True ($preciseSource -match "weight = PreciseRaiseMath\.Weight\(i - xPos, j - yPos, power\)" -and $preciseSource -match "!PreciseRaiseMath\.TryGetTargetHeight\(tileHeight, refHeight, delta, weight, out var targetHeight\)") "raise does not use the tested per-vertex falloff target and sign guards"
 Assert-True (([regex]::Matches($hardnessSource, "overlay && overlay is not RaiseGroundOverlayVisualizer")).Count -eq 2) "precise raise hardness is not enabled at both input and operation creation"
-Assert-True ($hardnessSource -match "activeRaiseTool != terrainOp[\s\S]*?lastTotalRaiseDelta = 0f") "raise hardness leaks between tools"
+Assert-True ($hardnessSource -match "SelectRaiseTool\(selectedTerrainOp && selectedTerrainOp\.m_settings\.m_raise \? selectedTerrainOp : null\)" -and $hardnessSource -match "SelectRaiseTool\(TerrainOp terrainOp\)[\s\S]*?lastTotalRaiseDelta = 0f") "raise hardness leaks when the selected tool changes without scrolling"
 Assert-True ($hardnessSource -notmatch "lastDisplayedRaiseHardness = -1;[\s\S]{0,120}SetPower\(__instance, 0\)") "leaving place mode reactivates raise hardness state"
+Assert-True ($hardnessSource -match "CurrentRaisePower\(float defaultPower\)[\s\S]*?RaiseToolIsInUse[\s\S]*?lastModdedRaisePwr") "raise preview cannot read the active slope setting"
 Assert-True ($spinnerSource -match "IsEnableHardnessModifier && Input\.GetKey\(TerrainTools\.HardnessKey\)[\s\S]*?return 0f;[\s\S]*?Input\.GetAxis\(MouseScrollWheel\)") "hardness scroll can still change the height spinner"
 Assert-True ($preciseSource -match "return radius == float\.NegativeInfinity;" -and $preciseSource -match "SettingsPayloadVersion = 1" -and $preciseSource -match "sizeof\(float\) \* 7") "legacy precision flags or the seven-float settings payload changed"
 
@@ -126,6 +128,7 @@ function Get-AxisBounds([float]$ZoneCenter, [int]$First, [int]$Last) {
 $centerBounds = Get-AxisBounds 0 31 33
 Assert-True $centerBounds[0] "central paint bounds are invalid"
 Assert-True ($centerBounds[1] -eq -1 -and $centerBounds[2] -eq 1) "paint core is not centered and 2m wide"
+Assert-True ($centerBounds[1] - 1 -eq -2 -and $centerBounds[2] + 1 -eq 2) "paint feather does not end at the 4m bilinear boundary"
 
 $westZoneBounds = Get-AxisBounds 0 63 64
 $eastZoneBounds = Get-AxisBounds 64 0 1
@@ -156,7 +159,7 @@ foreach ($center in $paintCenters) {
     $selected = @($zones | Where-Object { $center + 1 -ge $_ - 32 -and $center - 1 -le $_ + 32 } | ForEach-Object { Get-PaintAxis $_ $center })
     $min = ($selected.Min | Measure-Object -Minimum).Minimum
     $max = ($selected.Max | Measure-Object -Maximum).Maximum
-    Assert-True ($min -eq $center - 1 -and $max -eq $center + 1) "paint fanout/core shifts or expands at $center"
+    Assert-True ($min -eq $center - 1 -and $max -eq $center + 1) "paint core shifts or expands at $center"
 
     # Sample the bilinear mask through the production UVs, including both copies of a seam.
     foreach ($offset in @(-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2)) {
@@ -226,28 +229,46 @@ foreach ($case in $raiseHeightCases) {
             if (-not $applies) { continue }
             $expected = $case[0] + ($case[4] - $case[0]) * $weight
             Assert-True ([Math]::Abs($arguments[4] - $expected) -lt 1e-6) "raise ring scales center delta instead of the actual height change: tile=$($case[0]), power=$power"
-            if ($distance -le 1) { Assert-True ($arguments[4] -eq $case[4]) "raise top no longer matches the old full-strength target" }
+            if ($distance -eq 0) { Assert-True ($arguments[4] -eq $case[4]) "raise peak no longer matches the full-strength target" }
         }
     }
 }
 
 foreach ($power in @([float] 0, [float] 0.05, [float] 0.5, [float] 1, [float]::NaN)) {
+    $effectivePower = if ([float]::IsNaN($power)) { 1.0 } else { [Math]::Max(0.05, [Math]::Min(1.0, $power)) }
+    $topHalfExtent = 2.0 * (1.0 - $effectivePower) / 0.95
     $count = 0
     for ($dx = -4; $dx -le 4; $dx++) {
         for ($dz = -4; $dz -le 4; $dz++) {
             $weight = [float] $getRaiseWeight.Invoke($null, [object[]] @($dx, $dz, $power))
             $distance = [Math]::Max([Math]::Abs($dx), [Math]::Abs($dz))
             Assert-True (-not [float]::IsNaN($weight) -and $weight -ge 0 -and $weight -le 1) "raise falloff is not finite and bounded"
-            if ($distance -le 1) { Assert-True ($weight -eq 1) "raise changes the 2m flat top" }
+            if ($distance -le $topHalfExtent) { Assert-True ($weight -eq 1) "raise changes the selected top" }
             if ($distance -ge 3) { Assert-True ($weight -eq 0) "raise extends past the 6m influence" }
-            if ($distance -eq 2) {
-                $effectivePower = if ([float]::IsNaN($power)) { 1 } else { [Math]::Max(0.05, $power) }
-                Assert-True ([Math]::Abs($weight - [Math]::Pow(0.5, $effectivePower)) -lt 1e-6) "raise intermediate ring ignores hardness"
+            if ($distance -gt $topHalfExtent -and $distance -lt 3) {
+                $expectedWeight = (3.0 - $distance) / (3.0 - $topHalfExtent)
+                Assert-True ([Math]::Abs($weight - $expectedWeight) -lt 1e-6) "raise slope is not linear between the top and fixed boundary"
             }
             if ($weight -gt 0) { $count++ }
         }
     }
-    Assert-True ($count -eq 25) "raise does not have one intermediate vertex ring"
+    Assert-True ($count -eq 25) "raise does not stay inside its fixed 6m footprint"
+}
+
+$softTop = [float] $raiseMathType.GetMethod("SlopePivot", [Reflection.BindingFlags] "Static,NonPublic").Invoke($null, [object[]] @([float] 1))
+$hardTop = [float] $raiseMathType.GetMethod("SlopePivot", [Reflection.BindingFlags] "Static,NonPublic").Invoke($null, [object[]] @([float] 0.05))
+Assert-True ($softTop -eq 0 -and $hardTop -eq 2) "raise top does not resize from a point to 4m"
+$topRadiusMethod = $raiseMathType.GetMethod("TopVertexRadius", [Reflection.BindingFlags] "Static,NonPublic")
+foreach ($powerAndRadius in @(@([float] 1, 0), @([float] 0.5, 1), @([float] 0.05, 2))) {
+    $power = $powerAndRadius[0]
+    $topRadius = [int] $topRadiusMethod.Invoke($null, [object[]] @($power))
+    Assert-True ($topRadius -eq $powerAndRadius[1]) "raise preview top is not snapped to the terrain mesh"
+    $topWeight = [float] $getRaiseWeight.Invoke($null, [object[]] @($topRadius, 0, $power))
+    Assert-True ($topWeight -eq 1) "raise preview top includes a vertex below target height"
+    if ($topRadius -lt 2) {
+        $outsideWeight = [float] $getRaiseWeight.Invoke($null, [object[]] @(($topRadius + 1), 0, $power))
+        Assert-True ($outsideWeight -lt 1) "raise preview top excludes a vertex at target height"
+    }
 }
 
 foreach ($center in $paintCenters) {

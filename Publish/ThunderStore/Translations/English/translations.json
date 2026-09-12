@@ -4,7 +4,7 @@
   "atmc_level_square_name": "Level ground (square)",
   "atmc_level_square_desc": "Levels ground to the world grid based on player position. Use Shift + click to level from the pointed position instead (this smooths the terrain).",
   "atmc_raise_precision_name": "Raise ground (precision)",
-  "atmc_raise_precision_desc": "Targets a 2 m square area with slopes within 6 m. Uneven ground may need repeated applications to reach the target. Scroll to set height; hold the hardness modifier (Ctrl by default) and scroll to adjust slopes.",
+  "atmc_raise_precision_desc": "Raises terrain inside a fixed 6 m white boundary. The yellow frame shows the target flat top: hold Ctrl and scroll through point, 2 m and 4 m tops while adjusting the slope. Uneven ground may need repeated uses. Scroll normally to set height.",
   "atmc_lower_name": "Lower ground",
   "atmc_lower_desc": "Lowers ground.",
   "atmc_path_square_name": "Pathen (square)",

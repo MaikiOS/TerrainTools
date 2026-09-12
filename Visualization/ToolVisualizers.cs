@@ -43,8 +43,11 @@ namespace TerrainTools.Visualization
         {
             var heightmap = Heightmap.FindHeightmap(transform.position);
             var vertexScale = heightmap ? heightmap.m_scale : 1f;
-            // The modified vertices span the top; adjacent triangles extend the footprint by one cell.
-            secondary.StartSize = 2f * PreciseRaiseMath.TopRadius * vertexScale;
+            var terrainOp = GetComponent<TerrainOp>();
+            var raisePower = HardnessModifier.CurrentRaisePower(terrainOp.m_settings.m_raisePower);
+            var topRadius = PreciseRaiseMath.TopVertexRadius(raisePower);
+            // Valheim's one-metre terrain vertices only permit point, 2m and 4m flat tops.
+            secondary.StartSize = Mathf.Max(0.1f, 2f * topRadius * vertexScale);
             tertiary.StartSize = 2f * PreciseRaiseMath.InfluenceRadius * vertexScale;
 
             base.OnRefresh();
