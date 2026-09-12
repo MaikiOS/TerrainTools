@@ -69,16 +69,25 @@ namespace TerrainTools.Helpers {
         [HarmonyPostfix]
         [HarmonyPatch(typeof(TerrainOp), nameof(TerrainOp.GetRadius))]
         private static void GetRadiusPostfix(TerrainOp __instance, ref float __result) {
-            if (__instance && __instance.gameObject.GetComponent<RemoveModificationsOverlayVisualizer>()) {
+            if (!__instance) return;
+            var overlay = __instance.gameObject.GetComponent<OverlayVisualizer>();
+            if (overlay is RemoveModificationsOverlayVisualizer) {
                 __result = Mathf.Max(__result, __instance.m_settings.m_levelRadius + 1f);
+            } else if (overlay is RaiseGroundOverlayVisualizer) {
+                // Awake chooses every affected Heightmap before ApplyOperation sets precision flags.
+                __result = Mathf.Max(__result, PreciseRaiseMath.InfluenceRadius);
+            } else if (overlay && __instance.m_settings.m_paintCleared) {
+                __result = Mathf.Max(__result, FixedPaintRadius);
             }
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(TerrainOp.Settings), nameof(TerrainOp.Settings.GetRadius))]
         private static void GetSettingsRadiusPostfix(TerrainOp.Settings __instance, ref float __result) {
-            if ((__instance.m_raise && IsPrecisionModifier(__instance.m_raiseRadius))
-                || (__instance.m_smooth && IsPrecisionModifier(__instance.m_smoothRadius))
+            if (__instance.m_raise && IsPrecisionModifier(__instance.m_raiseRadius)) {
+                __result = Mathf.Max(__result, PreciseRaiseMath.InfluenceRadius);
+            }
+            if ((__instance.m_smooth && IsPrecisionModifier(__instance.m_smoothRadius))
                 || (__instance.m_paintCleared && IsPrecisionModifier(__instance.m_paintRadius))) {
                 __result = Mathf.Max(__result, FixedRadius);
             }
@@ -255,7 +264,7 @@ namespace TerrainTools.Helpers {
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(TerrainComp), nameof(TerrainComp.RaiseTerrain))]
-        private static bool RaiseTerrainPrefix(TerrainComp __instance, Vector3 worldPos, float radius, float delta) {
+        private static bool RaiseTerrainPrefix(TerrainComp __instance, Vector3 worldPos, float radius, float delta, float power) {
             if (!IsPrecisionModifier(radius)) {
                 return true;
             }
@@ -268,25 +277,15 @@ namespace TerrainTools.Helpers {
                 LogLevel.Medium
             );
 
-            FindExtrema(xPos, worldSize, out var xMin, out var xMax);
-            FindExtrema(yPos, worldSize, out var yMin, out var yMax);
+            FindExtrema(xPos, worldSize, PreciseRaiseMath.ModifiedRadius, out var xMin, out var xMax);
+            FindExtrema(yPos, worldSize, PreciseRaiseMath.ModifiedRadius, out var yMin, out var yMax);
 
             for (var i = xMin; i <= xMax; i++) {
                 for (var j = yMin; j <= yMax; j++) {
                     var tileHeight = __instance.m_hmap.GetHeight(i, j);
-                    var targetHeight = refHeight + delta;
-
-                    if (delta < 0f && targetHeight > tileHeight) {
+                    var weight = PreciseRaiseMath.Weight(i - xPos, j - yPos, power);
+                    if (!PreciseRaiseMath.TryGetTargetHeight(tileHeight, refHeight, delta, weight, out var targetHeight)) {
                         continue;
-                    }
-
-                    if (delta >= 0f) {
-                        if (targetHeight < tileHeight) {
-                            continue;
-                        }
-                        if (targetHeight > tileHeight + delta) {
-                            targetHeight = tileHeight + delta;
-                        }
                     }
 
                     var tileIndex = j * worldSize + i;
@@ -391,16 +390,10 @@ namespace TerrainTools.Helpers {
             out int yStart,
             out int yMax
         ) {
-            var worldSize = heightmap.m_width + 1;
-            heightmap.WorldToVertexMask(worldPos, out var xPos, out var yPos);
-
-            FindExtrema(xPos, worldSize, radius, out var xMin, out xMax);
-            FindExtrema(yPos, worldSize, radius, out var yMin, out yMax);
-
-            // Mask index zero is the duplicated west/south border. Everywhere
-            // else precision paint starts at the selected cell, not its neighbour.
-            xStart = xPos <= 0 ? xMin : xMin + 1;
-            yStart = yPos <= 0 ? yMin : yMin + 1;
+            heightmap.WorldToVertex(worldPos, out var xPos, out var yPos);
+            // Symmetric logical vertices also select both copies of an affected zone border.
+            PaintGridMath.GetAxisIndices(heightmap.m_width, xPos, radius, out xStart, out xMax);
+            PaintGridMath.GetAxisIndices(heightmap.m_width, yPos, radius, out yStart, out yMax);
         }
 
         public static bool TryGetPaintMaskWorldBounds(
@@ -479,8 +472,7 @@ namespace TerrainTools.Helpers {
         }
 
         private static void FindExtrema(int x, int worldSize, int radius, out int xMin, out int xMax) {
-            xMin = Mathf.Max(0, x - radius);
-            xMax = Mathf.Min(x + radius, worldSize - 1);
+            PaintGridMath.GetAxisIndices(worldSize - 1, x, radius, out xMin, out xMax);
         }
     }
 }

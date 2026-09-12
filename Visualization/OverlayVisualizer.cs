@@ -102,7 +102,7 @@ namespace TerrainTools.Visualization {
                 max = Vector2.Max(max, zoneMax);
                 featherWidth = Mathf.Max(
                     featherWidth,
-                    PaintGridMath.TexelScale(heightmap.m_width, heightmap.m_scale) * 0.5f
+                    heightmap.m_scale
                 );
             }
 

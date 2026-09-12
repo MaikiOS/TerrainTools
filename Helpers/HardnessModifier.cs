@@ -24,10 +24,11 @@ namespace TerrainTools.Helpers {
         private const float MaxSmoothPwr = 30f;
 
         private static bool RaiseToolIsInUse = false;
+        private static TerrainOp activeRaiseTool;
         private static float lastModdedRaisePwr;
         private static float lastTotalRaiseDelta;
-        private const float MinRaisePwr = 0.05f;
-        private const float MaxRaisePwr = 1f;
+        private const float MinRaisePwr = PreciseRaiseMath.MinPower;
+        private const float MaxRaisePwr = PreciseRaiseMath.MaxPower;
 
         private const float DisplayThreshold = 0.9f; // percentage
         private static float lastDisplayedSmoothHardness;
@@ -45,15 +46,14 @@ namespace TerrainTools.Helpers {
                     lastModdedSmoothPwr = 0;
                     lastTotalSmoothDelta = 0;
                     lastDisplayedSmoothHardness = -1;
-                    SetPower(__instance, 0);
                 }
 
                 if (RaiseToolIsInUse) {
                     RaiseToolIsInUse = false;
+                    activeRaiseTool = null;
                     lastModdedRaisePwr = 0;
                     lastTotalRaiseDelta = 0;
                     lastDisplayedRaiseHardness = -1;
-                    SetPower(__instance, 0);
                 }
 
                 return;
@@ -74,11 +74,11 @@ namespace TerrainTools.Helpers {
         [HarmonyPriority(Priority.High)]
         [HarmonyPatch(typeof(TerrainOp), nameof(TerrainOp.Awake))]
         private static void AwakePrefix(TerrainOp __instance) {
-            if (!__instance ||
-                !__instance.gameObject ||
-                __instance.gameObject.GetComponent<OverlayVisualizer>()) {
+            if (!__instance || !__instance.gameObject) {
                 return;
             }
+            var overlay = __instance.gameObject.GetComponent<OverlayVisualizer>();
+            if (overlay && overlay is not RaiseGroundOverlayVisualizer) return;
 
             if (__instance.m_settings.m_raise) {
                 __instance.m_settings.m_raisePower = ModifyRaisePower(__instance.m_settings.m_raisePower, lastTotalRaiseDelta);
@@ -93,9 +93,11 @@ namespace TerrainTools.Helpers {
 
         private static void SetPower(Player player, float delta) {
             var piece = player.GetSelectedPiece();
-            if (!piece || !piece.gameObject || piece.gameObject.GetComponent<OverlayVisualizer>()) {
+            if (!piece || !piece.gameObject) {
                 return;
             }
+            var overlay = piece.gameObject.GetComponent<OverlayVisualizer>();
+            if (overlay && overlay is not RaiseGroundOverlayVisualizer) return;
 
             var terrainOp = piece.gameObject.GetComponent<TerrainOp>();
             if (!terrainOp) {
@@ -146,6 +148,13 @@ namespace TerrainTools.Helpers {
         private static void SetRaisePower(TerrainOp terrainOp, float delta) {
             if (!terrainOp.m_settings.m_raise) {
                 return;
+            }
+
+            if (activeRaiseTool != terrainOp) {
+                activeRaiseTool = terrainOp;
+                RaiseToolIsInUse = false;
+                lastTotalRaiseDelta = 0f;
+                lastDisplayedRaiseHardness = -1f;
             }
 
             delta = ConvertSmoothDeltaToRaiseDelta(delta);

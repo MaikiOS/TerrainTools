@@ -44,8 +44,8 @@ namespace TerrainTools.Visualization
             var heightmap = Heightmap.FindHeightmap(transform.position);
             var vertexScale = heightmap ? heightmap.m_scale : 1f;
             // The modified vertices span the top; adjacent triangles extend the footprint by one cell.
-            secondary.StartSize = 2f * PreciseTerrainModifier.FixedRadius * vertexScale;
-            tertiary.StartSize = 2f * (PreciseTerrainModifier.FixedRadius + 1) * vertexScale;
+            secondary.StartSize = 2f * PreciseRaiseMath.TopRadius * vertexScale;
+            tertiary.StartSize = 2f * PreciseRaiseMath.InfluenceRadius * vertexScale;
 
             base.OnRefresh();
             primary.Enabled = false;

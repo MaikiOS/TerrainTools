@@ -203,9 +203,7 @@ namespace TerrainTools {
                 HardnessSection,
                 ConfigManager.SetStringPriority("HardnessModifier", 1),
                 true,
-                "Set to true/enabled to allow modifying the hardness of terrain tools using the scroll wheel. " +
-                "Note: Hardness cannot be changed on square terraforming tools and tools that do not alter " +
-                "ground height do not have a hardness."
+                "Use the modifier key and scroll wheel to adjust round terrain-tool hardness and Precise Raise slopes."
             );
 
             hardnessModKey = ConfigManager.BindConfig(

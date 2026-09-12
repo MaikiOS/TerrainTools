@@ -28,6 +28,9 @@ namespace TerrainTools.Helpers
 
         private static float ScrollDelta()
         {
+            if (TerrainTools.IsEnableHardnessModifier && Input.GetKey(TerrainTools.HardnessKey)) {
+                return 0f;
+            }
             var scrollDelta = Input.GetAxis(MouseScrollWheel);
             if (scrollDelta != 0)
             {

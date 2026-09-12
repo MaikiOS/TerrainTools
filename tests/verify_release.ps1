@@ -21,6 +21,10 @@ $overlaySource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization
 $overlayVisualizerSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\OverlayVisualizer.cs") -Raw
 $toolVisualizersSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\ToolVisualizers.cs") -Raw
 $paintGridMathSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\PaintGridMath.cs") -Raw
+$raiseMathSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\PreciseRaiseMath.cs") -Raw
+$heightmapPatchSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Patches\HeightmapPaintGridPatch.cs") -Raw
+$hardnessSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\HardnessModifier.cs") -Raw
+$spinnerSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\GroundLevelSpinner.cs") -Raw
 $allSource = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -Filter "*.cs" |
     Where-Object FullName -NotMatch "[\\/](bin|obj)[\\/]" |
     ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
@@ -36,10 +40,10 @@ Assert-True ($initSource -match "registeredTerrainOp != terrainOp") "TerrainOp h
 Assert-True ($initSource -match "ObjectDBUpdateRegistersPostfix") "TerrainOp fallback is not restored after ObjectDB refresh"
 Assert-True ($preciseSource -match "SerializeSettingsPostfix") "runtime TerrainOp settings are not serialized"
 Assert-True ($preciseSource -match "DeserializeSettingsPostfix") "runtime TerrainOp settings are not deserialized"
-Assert-True ($preciseSource -match "FixedPaintRadius = 1") "square paint does not use the interpolated 3m footprint"
+Assert-True ($preciseSource -match "FixedPaintRadius = 1") "square paint does not retain its 2m core"
 Assert-True ($preciseSource -notmatch "worldPos\.(x|z)\s*-=\s*0\.5f") "paint still applies the obsolete half-cell offset"
 Assert-True ($preciseSource -match "m_modifiedPaint\[tileIndex\]\s*=\s*true") "paint reset is not persisted explicitly"
-Assert-True ($preciseSource -match "xPos <= 0 \? xMin : xMin \+ 1" -and $preciseSource -match "yPos <= 0 \? yMin : yMin \+ 1") "paint does not update the duplicated Heightmap border"
+Assert-True ($preciseSource -match "GetAxisIndices\(heightmap\.m_width, xPos, radius, out xStart, out xMax\)" -and $preciseSource -match "GetAxisIndices\(heightmap\.m_width, yPos, radius, out yStart, out yMax\)") "paint does not use symmetric shared index bounds on both axes"
 Assert-True ($preciseSource -match "Reset chunk" -and $preciseSource -match "vertices=" -and $preciseSource -match "edge=") "chunk-boundary reset diagnostics are missing"
 Assert-True ($preciseSource -match "GetRadiusPostfix") "reset radius does not select every affected Heightmap"
 Assert-True ($preciseSource -match "m_levelRadius \+ 1f") "reset radius does not include neighboring Heightmaps"
@@ -57,7 +61,10 @@ Assert-True ($overlaySource -match "psm = ps\.main") "Overlay MainModule is not 
 Assert-True ($overlaySource -match "public float StartSpeed[\s\S]*?psm\.startSpeed\.constant") "Overlay StartSpeed getter is incorrect"
 Assert-True ($overlaySource -match "psMain\.startColor = value") "Overlay StartColor setter is ineffective"
 Assert-True (([regex]::Matches($preciseSource, "GetPaintMaskBounds\(")).Count -ge 3) "paint write and preview do not share one mask-bounds calculation"
-Assert-True ($paintGridMathSource -match "terrainWidth \* vertexScale / \(terrainWidth \+ 1f\)") "paint preview does not use the rendered 65x65 mask spacing"
+Assert-True ($paintGridMathSource -match "\(index \+ 0\.5f\) / \(terrainWidth \+ 1f\)") "paint UVs do not put texel centers on height vertices"
+Assert-True ($heightmapPatchSource -match "HarmonyPatch\(typeof\(Heightmap\), nameof\(Heightmap\.RebuildRenderMesh\)\)" -and $heightmapPatchSource -match "m_renderMesh\.SetUVs\(0, uvs\)") "paint UV correction does not target the native render UV channel"
+Assert-True ($heightmapPatchSource -match "m_isDistantLod" -and $heightmapPatchSource -match "vertexCount != side \* side") "paint UV correction does not guard non-native mesh layouts"
+Assert-True ($heightmapPatchSource -notmatch "SetVertices|SetColors|SetIndices|m_paintMask|m_modifiedPaint") "render UV correction changes geometry or saved paint data"
 Assert-True ($overlayVisualizerSource -match "TryGetPaintMaskWorldBounds") "paint preview does not use the shared render-grid geometry"
 Assert-True ($overlayVisualizerSource -notmatch "VertexMaskToWorld") "paint preview still uses the mismatched vanilla vertex-grid inverse"
 Assert-True ($overlayVisualizerSource -match "Heightmap\.FindHeightmap\([\s\S]*?heightmaps") "grid previews do not include every affected Heightmap"
@@ -71,15 +78,25 @@ Assert-True ($overlayVisualizerSource -match "class HoverInfoEnabled[\s\S]*?var 
 Assert-True ($toolVisualizersSource -match "class LevelGroundOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?secondary\.Enabled = true;[\s\S]*?tertiary\.Enabled = true;[\s\S]*?class RaiseGroundOverlayVisualizer") "level square does not use the shared paint footprint"
 $raiseVisualizerSource = [regex]::Match($toolVisualizersSource, "class RaiseGroundOverlayVisualizer[\s\S]*?(?=class SquarePathOverlayVisualizer)").Value
 Assert-True ($raiseVisualizerSource -notmatch "SnapToPaintGrid|WorldToVertex") "raise preview still has a separate paint or height snap"
-Assert-True ($raiseVisualizerSource -match "secondary\.StartSize = 2f \* PreciseTerrainModifier\.FixedRadius \* vertexScale" -and $raiseVisualizerSource -match "tertiary\.StartSize = 2f \* \(PreciseTerrainModifier\.FixedRadius \+ 1\) \* vertexScale") "raise preview does not distinguish the 2m top from the 4m affected footprint"
+Assert-True ($raiseVisualizerSource -match "secondary\.StartSize = 2f \* PreciseRaiseMath\.TopRadius \* vertexScale" -and $raiseVisualizerSource -match "tertiary\.StartSize = 2f \* PreciseRaiseMath\.InfluenceRadius \* vertexScale") "raise preview does not distinguish the 2m top from the 6m influence"
 Assert-True ($raiseVisualizerSource -match "secondary\.LocalScale = Vector3\.one;" -and $raiseVisualizerSource -match "tertiary\.LocalScale = Vector3\.one;") "raise preview inherits a scaled paint frame"
 Assert-True ($toolVisualizersSource -match "class SquarePathOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class CultivateOverlayVisualizer") "square paths do not show only their paint grid"
 Assert-True ($toolVisualizersSource -match "class CultivateOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?primary\.Enabled = false;[\s\S]*?class SeedGrassOverlayVisualizer") "square cultivation does not show only its paint grid"
 Assert-True ($toolVisualizersSource -match "class SeedGrassOverlayVisualizer[\s\S]*?SnapToPaintGrid\(secondary, tertiary\)[\s\S]*?class RemoveModificationsOverlayVisualizer") "replant square does not use the paint grid preview"
 Assert-True ($toolVisualizersSource -notmatch "SpeedUp\(secondary\)[\s\S]{0,120}VisualizeTerraformingBounds\(secondary\)") "exact level frame is still animated"
 Assert-True ($toolVisualizersSource -match "localPosition\.y = VerticalOffset\.y \+ GroundLevelSpinner\.Value") "raise target frame loses its vertical overlay offset"
-Assert-True ($overlayVisualizerSource -match "TexelScale\(heightmap\.m_width, heightmap\.m_scale\) \* 0\.5f") "paint feather does not follow the rendered texel size"
+Assert-True ($overlayVisualizerSource -match "featherWidth = Mathf\.Max\(\s*featherWidth,\s*heightmap\.m_scale\s*\)") "paint support does not extend one corrected texel beyond the core"
 Assert-True (([regex]::Matches($toolVisualizersSource, "tertiary\.StartColor = new Color\(1f, 1f, 1f, 0\.3f\)")).Count -ge 2) "paint feather is not visually distinguished"
+Assert-True ($preciseSource -match "overlay is RaiseGroundOverlayVisualizer[\s\S]*?Mathf\.Max\(__result, PreciseRaiseMath\.InfluenceRadius\)") "raise fanout is not expanded before precision flags are set"
+Assert-True ($preciseSource -match "m_raise && IsPrecisionModifier\(__instance\.m_raiseRadius\)[\s\S]*?Mathf\.Max\(__result, PreciseRaiseMath\.InfluenceRadius\)") "legacy precision raise radius does not include the falloff"
+Assert-True ($preciseSource -match "FindExtrema\(xPos, worldSize, PreciseRaiseMath\.ModifiedRadius" -and $preciseSource -match "FindExtrema\(yPos, worldSize, PreciseRaiseMath\.ModifiedRadius") "raise does not modify the intermediate ring on both axes"
+Assert-True ($preciseSource -match "GetAxisIndices\(worldSize - 1, x, radius, out xMin, out xMax\)") "height edits do not use the tested zone clipping"
+Assert-True ($preciseSource -match "weight = PreciseRaiseMath\.Weight\(i - xPos, j - yPos, power\)" -and $preciseSource -match "!PreciseRaiseMath\.TryGetTargetHeight\(tileHeight, refHeight, delta, weight, out var targetHeight\)") "raise does not use the tested per-vertex falloff target and sign guards"
+Assert-True (([regex]::Matches($hardnessSource, "overlay && overlay is not RaiseGroundOverlayVisualizer")).Count -eq 2) "precise raise hardness is not enabled at both input and operation creation"
+Assert-True ($hardnessSource -match "activeRaiseTool != terrainOp[\s\S]*?lastTotalRaiseDelta = 0f") "raise hardness leaks between tools"
+Assert-True ($hardnessSource -notmatch "lastDisplayedRaiseHardness = -1;[\s\S]{0,120}SetPower\(__instance, 0\)") "leaving place mode reactivates raise hardness state"
+Assert-True ($spinnerSource -match "IsEnableHardnessModifier && Input\.GetKey\(TerrainTools\.HardnessKey\)[\s\S]*?return 0f;[\s\S]*?Input\.GetAxis\(MouseScrollWheel\)") "hardness scroll can still change the height spinner"
+Assert-True ($preciseSource -match "return radius == float\.NegativeInfinity;" -and $preciseSource -match "SettingsPayloadVersion = 1" -and $preciseSource -match "sizeof\(float\) \* 7") "legacy precision flags or the seven-float settings payload changed"
 
 # Native Heightmap IL: height = floor(local / scale + 0.5) + width / 2;
 # mask = floor(local / scale + 0.5 + (width + 1) / 2). Width 64 has half-index 32.
@@ -98,24 +115,174 @@ foreach ($zoneCenter in @(-64, 0, 64)) {
 
 $mathType = Add-Type -TypeDefinition $paintGridMathSource -PassThru
 $getAxisBounds = $mathType.GetMethod("TryGetAxisBounds", [Reflection.BindingFlags] "Static,NonPublic")
+$getAxisIndices = $mathType.GetMethod("GetAxisIndices", [Reflection.BindingFlags] "Static,NonPublic")
+$getTexelUv = $mathType.GetMethod("TexelCenterUv", [Reflection.BindingFlags] "Static,NonPublic")
 function Get-AxisBounds([float]$ZoneCenter, [int]$First, [int]$Last) {
     $arguments = [object[]] @(64, [float] 1, $ZoneCenter, $First, $Last, [float] 0, [float] 0)
     $valid = [bool] $getAxisBounds.Invoke($null, $arguments)
     return @($valid, [float] $arguments[5], [float] $arguments[6])
 }
 
-$centerBounds = Get-AxisBounds 0 32 33
+$centerBounds = Get-AxisBounds 0 31 33
 Assert-True $centerBounds[0] "central paint bounds are invalid"
-Assert-True ([Math]::Abs((($centerBounds[1] + $centerBounds[2]) * 0.5) - 0.49230769230769234) -lt 1e-6) "paint preview center regression"
-Assert-True ([Math]::Abs(($centerBounds[2] - $centerBounds[1]) - 2.953846153846154) -lt 1e-6) "two-cell bilinear support regression"
+Assert-True ($centerBounds[1] -eq -1 -and $centerBounds[2] -eq 1) "paint core is not centered and 2m wide"
 
-$westZoneBounds = Get-AxisBounds 0 64 64
+$westZoneBounds = Get-AxisBounds 0 63 64
 $eastZoneBounds = Get-AxisBounds 64 0 1
 $zoneUnionWidth = [Math]::Max($westZoneBounds[2], $eastZoneBounds[2]) - [Math]::Min($westZoneBounds[1], $eastZoneBounds[1])
-Assert-True ([Math]::Abs($zoneUnionWidth - 3.9384615384615387) -lt 1e-5) "paint preview does not cover both sides of a Heightmap boundary"
+Assert-True ($zoneUnionWidth -eq 2) "paint core widens at a Heightmap boundary"
 
 $emptyBounds = Get-AxisBounds 0 65 64
 Assert-True (-not $emptyBounds[0]) "empty neighboring Heightmap bounds are treated as painted"
+
+function Get-PaintAxis([float]$ZoneCenter, [float]$WorldCenter, [int]$Radius = 1) {
+    $centerIndex = [int] [Math]::Floor($WorldCenter - $ZoneCenter + 0.5) + 32
+    $arguments = [object[]] @(64, $centerIndex, $Radius, 0, 0)
+    $null = $getAxisIndices.Invoke($null, $arguments)
+    $bounds = Get-AxisBounds $ZoneCenter $arguments[3] $arguments[4]
+    return @{ First = [int] $arguments[3]; Last = [int] $arguments[4]; Valid = $bounds[0]; Min = $bounds[1]; Max = $bounds[2] }
+}
+
+foreach ($width in @(32, 64)) {
+    for ($index = 0; $index -le $width; $index++) {
+        $uv = [float] $getTexelUv.Invoke($null, [object[]] @($index, $width))
+        Assert-True ([Math]::Abs($uv * ($width + 1) - 0.5 - $index) -lt 1e-5) "render UV does not sample texel center $index/$width"
+    }
+}
+
+$zones = @(-64, 0, 64)
+$paintCenters = @(-64, -33, -32, -31, -23, 0, 23, 31, 32, 33, 64)
+foreach ($center in $paintCenters) {
+    $selected = @($zones | Where-Object { $center + 1 -ge $_ - 32 -and $center - 1 -le $_ + 32 } | ForEach-Object { Get-PaintAxis $_ $center })
+    $min = ($selected.Min | Measure-Object -Minimum).Minimum
+    $max = ($selected.Max | Measure-Object -Maximum).Maximum
+    Assert-True ($min -eq $center - 1 -and $max -eq $center + 1) "paint fanout/core shifts or expands at $center"
+
+    # Sample the bilinear mask through the production UVs, including both copies of a seam.
+    foreach ($offset in @(-2, -1.5, -1, -0.5, 0, 0.5, 1, 1.5, 2)) {
+        $world = $center + $offset
+        foreach ($zone in $zones | Where-Object { $world -ge $_ - 32 -and $world -le $_ + 32 }) {
+            $axis = Get-PaintAxis $zone $center
+            $local = $world - $zone + 32
+            $vertex = [Math]::Min(63, [int] [Math]::Floor($local))
+            $uv0 = [float] $getTexelUv.Invoke($null, [object[]] @($vertex, 64))
+            $uv1 = [float] $getTexelUv.Invoke($null, [object[]] @(($vertex + 1), 64))
+            $texel = ($uv0 + ($uv1 - $uv0) * ($local - $vertex)) * 65 - 0.5
+            $lo = [int] [Math]::Floor($texel)
+            $a = [Math]::Max(0, [Math]::Min(64, $lo))
+            $b = [Math]::Max(0, [Math]::Min(64, $lo + 1))
+            $aValue = [int] ($a -ge $axis.First -and $a -le $axis.Last)
+            $bValue = [int] ($b -ge $axis.First -and $b -le $axis.Last)
+            $sample = $aValue + ($bValue - $aValue) * ($texel - $lo)
+            $expected = [Math]::Max(0.0, [Math]::Min(1.0, 2.0 - [Math]::Abs($offset)))
+            Assert-True ([Math]::Abs($sample - $expected) -lt 1e-5) "paint support is shifted or widened: center=$center, world=$world, zone=$zone"
+        }
+    }
+}
+
+foreach ($cx in @(-32, 32)) {
+    foreach ($cz in @(-32, 32)) {
+        $copies = @{}
+        foreach ($zx in $zones | Where-Object { $cx + 1 -ge $_ - 32 -and $cx - 1 -le $_ + 32 }) {
+            foreach ($zz in $zones | Where-Object { $cz + 1 -ge $_ - 32 -and $cz - 1 -le $_ + 32 }) {
+                $xAxis = Get-PaintAxis $zx $cx
+                $zAxis = Get-PaintAxis $zz $cz
+                for ($x = $xAxis.First; $x -le $xAxis.Last; $x++) {
+                    for ($z = $zAxis.First; $z -le $zAxis.Last; $z++) {
+                        $key = "$($zx + $x - 32),$($zz + $z - 32)"
+                        $copies[$key] = 1 + $copies[$key]
+                    }
+                }
+            }
+        }
+        Assert-True ($copies.Count -eq 9 -and $copies["$cx,$cz"] -eq 4) "four-zone corner does not write the same centered 3x3 stencil to all border copies"
+    }
+}
+
+$raiseMathType = Add-Type -TypeDefinition $raiseMathSource -PassThru
+$getRaiseWeight = $raiseMathType.GetMethod("Weight", [Reflection.BindingFlags] "Static,NonPublic")
+$getRaiseTarget = $raiseMathType.GetMethod("TryGetTargetHeight", [Reflection.BindingFlags] "Static,NonPublic")
+# tile, reference, delta, should apply, original full-strength target.
+# Above/below-center tiles expose the difference between scaling delta and scaling the actual change.
+$raiseHeightCases = @(
+    @(10.5, 10, 1, $true, 11),
+    @(9.5, 10, 1, $true, 10.5),
+    @(10, 10, 1, $true, 11),
+    @(11, 10, 1, $true, 11),
+    @(11.5, 10, 1, $false, 11.5),
+    @(10.5, 10, 0, $false, 10.5),
+    @(9.5, 10, 0, $true, 9.5),
+    @(10.5, 10, -1, $true, 9),
+    @(9.5, 10, -1, $true, 9),
+    @(8.5, 10, -1, $false, 8.5)
+)
+foreach ($case in $raiseHeightCases) {
+    foreach ($power in @([float] 0, [float] 0.05, [float] 0.5, [float] 1)) {
+        foreach ($distance in @(0, 1, 2)) {
+            $weight = [float] $getRaiseWeight.Invoke($null, [object[]] @($distance, 0, $power))
+            $arguments = [object[]] @([float] $case[0], [float] $case[1], [float] $case[2], $weight, [float] 0)
+            $applies = [bool] $getRaiseTarget.Invoke($null, $arguments)
+            Assert-True ($applies -eq $case[3]) "raise falloff changes the original sign guard: tile=$($case[0]), delta=$($case[2])"
+            if (-not $applies) { continue }
+            $expected = $case[0] + ($case[4] - $case[0]) * $weight
+            Assert-True ([Math]::Abs($arguments[4] - $expected) -lt 1e-6) "raise ring scales center delta instead of the actual height change: tile=$($case[0]), power=$power"
+            if ($distance -le 1) { Assert-True ($arguments[4] -eq $case[4]) "raise top no longer matches the old full-strength target" }
+        }
+    }
+}
+
+foreach ($power in @([float] 0, [float] 0.05, [float] 0.5, [float] 1, [float]::NaN)) {
+    $count = 0
+    for ($dx = -4; $dx -le 4; $dx++) {
+        for ($dz = -4; $dz -le 4; $dz++) {
+            $weight = [float] $getRaiseWeight.Invoke($null, [object[]] @($dx, $dz, $power))
+            $distance = [Math]::Max([Math]::Abs($dx), [Math]::Abs($dz))
+            Assert-True (-not [float]::IsNaN($weight) -and $weight -ge 0 -and $weight -le 1) "raise falloff is not finite and bounded"
+            if ($distance -le 1) { Assert-True ($weight -eq 1) "raise changes the 2m flat top" }
+            if ($distance -ge 3) { Assert-True ($weight -eq 0) "raise extends past the 6m influence" }
+            if ($distance -eq 2) {
+                $effectivePower = if ([float]::IsNaN($power)) { 1 } else { [Math]::Max(0.05, $power) }
+                Assert-True ([Math]::Abs($weight - [Math]::Pow(0.5, $effectivePower)) -lt 1e-6) "raise intermediate ring ignores hardness"
+            }
+            if ($weight -gt 0) { $count++ }
+        }
+    }
+    Assert-True ($count -eq 25) "raise does not have one intermediate vertex ring"
+}
+
+foreach ($center in $paintCenters) {
+    $vertices = [Collections.Generic.HashSet[int]]::new()
+    foreach ($zone in $zones | Where-Object { $center + 3 -ge $_ - 32 -and $center - 3 -le $_ + 32 }) {
+        $axis = Get-PaintAxis $zone $center 2
+        for ($i = $axis.First; $i -le $axis.Last; $i++) { $null = $vertices.Add($zone + $i - 32) }
+    }
+    Assert-True ($vertices.Count -eq 5 -and ($vertices | Measure-Object -Minimum).Minimum -eq $center - 2 -and ($vertices | Measure-Object -Maximum).Maximum -eq $center + 2) "raise fanout omits or expands the falloff ring at $center"
+}
+
+foreach ($cx in @(-32, 32)) {
+    foreach ($cz in @(-32, 32)) {
+        $weights = @{}
+        foreach ($zx in $zones | Where-Object { $cx + 3 -ge $_ - 32 -and $cx - 3 -le $_ + 32 }) {
+            foreach ($zz in $zones | Where-Object { $cz + 3 -ge $_ - 32 -and $cz - 3 -le $_ + 32 }) {
+                $xAxis = Get-PaintAxis $zx $cx 2
+                $zAxis = Get-PaintAxis $zz $cz 2
+                for ($x = $xAxis.First; $x -le $xAxis.Last; $x++) {
+                    for ($z = $zAxis.First; $z -le $zAxis.Last; $z++) {
+                        $wx = $zx + $x - 32
+                        $wz = $zz + $z - 32
+                        $key = "$wx,$wz"
+                        $weight = [float] $getRaiseWeight.Invoke($null, [object[]] @(($wx - $cx), ($wz - $cz), [float] 0.5))
+                        if ($weights.ContainsKey($key)) { Assert-True ($weights[$key] -eq $weight) "raise corner copies receive different slope weights" }
+                        $weights[$key] = $weight
+                    }
+                }
+            }
+        }
+        Assert-True ($weights.Count -eq 25) "raise four-zone fanout does not cover the full falloff ring"
+    }
+}
+
+Write-Host "PASS: native paint UVs, centered core/support, zone seams/corners, and precise raise falloff"
 
 foreach ($manifestPath in @("Package\manifest.json", "Publish\ThunderStore\manifest.json")) {
     $manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot $manifestPath) -Raw | ConvertFrom-Json

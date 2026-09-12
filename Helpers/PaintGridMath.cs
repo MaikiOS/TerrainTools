@@ -2,8 +2,13 @@ using System;
 
 namespace TerrainTools.Helpers {
     internal static class PaintGridMath {
-        internal static float TexelScale(int terrainWidth, float vertexScale) {
-            return terrainWidth * vertexScale / (terrainWidth + 1f);
+        internal static float TexelCenterUv(int index, int terrainWidth) {
+            return (index + 0.5f) / (terrainWidth + 1f);
+        }
+
+        internal static void GetAxisIndices(int terrainWidth, int centerIndex, int radius, out int first, out int last) {
+            first = Math.Max(0, centerIndex - radius);
+            last = Math.Min(terrainWidth, centerIndex + radius);
         }
 
         internal static bool TryGetAxisBounds(
@@ -23,11 +28,9 @@ namespace TerrainTools.Helpers {
 
             var halfWorldSize = terrainWidth * vertexScale * 0.5f;
             var zoneMin = zoneCenter - halfWorldSize;
-            var zoneMax = zoneCenter + halfWorldSize;
-            var texelScale = TexelScale(terrainWidth, vertexScale);
-
-            min = Math.Max(zoneMin, zoneMin + (firstPaintedTexel - 0.5f) * texelScale);
-            max = Math.Min(zoneMax, zoneMin + (lastPaintedTexel + 1.5f) * texelScale);
+            // The experimental render UVs place each texel center on its height vertex.
+            min = zoneMin + firstPaintedTexel * vertexScale;
+            max = zoneMin + lastPaintedTexel * vertexScale;
             return true;
         }
 
