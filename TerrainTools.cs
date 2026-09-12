@@ -24,7 +24,7 @@ namespace TerrainTools {
         internal const string Author = "Searica";
         public const string PluginName = "AdvancedTerrainModifiers";
         public const string PluginGUID = $"{Author}.Valheim.TerrainTools";
-        public const string PluginVersion = "1.4.5";
+        public const string PluginVersion = "1.4.6";
 
         #region Section Names
 
@@ -103,6 +103,7 @@ namespace TerrainTools {
 
             ConfigManager.Init(PluginGUID, Config);
             SetUpConfigEntries();
+            RegisterTranslations();
 
             Harmony.CreateAndPatchAll(Assembly.GetExecutingAssembly(), harmonyInstanceId: PluginGUID);
             Game.isModded = true;
@@ -136,6 +137,13 @@ namespace TerrainTools {
                     UpdatePlugin = false;
                 }
             };
+        }
+
+        private void RegisterTranslations() {
+            var localization = LocalizationManager.Instance.GetLocalization();
+            Assembly assembly = Assembly.GetExecutingAssembly();
+            localization.AddJsonFile("English", AssetUtils.LoadTextFromResources("TerrainTools.Translations.English.json", assembly));
+            localization.AddJsonFile("Russian", AssetUtils.LoadTextFromResources("TerrainTools.Translations.Russian.json", assembly));
         }
 
         private void Update() {

@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "1.4.5"
+$expectedVersion = "1.4.6"
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "VERIFY FAILED: $Message" }
@@ -34,6 +34,8 @@ $allSource = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -Filter "*.cs" |
 $allSourceText = $allSource -join "`n"
 
 Assert-True ($pluginSource -match "PluginVersion = `"$([regex]::Escape($expectedVersion))`"") "plugin version is not $expectedVersion"
+Assert-True ($pluginSource -match 'GetLocalization\(\)' -and $pluginSource -match 'TerrainTools\.Translations\.English\.json' -and $pluginSource -match 'TerrainTools\.Translations\.Russian\.json') "embedded translations are not registered explicitly"
+Assert-True ((Get-Content -LiteralPath (Join-Path $ProjectRoot "TerrainTools.csproj") -Raw) -match 'LogicalName="TerrainTools\.Translations\.English\.json"' -and (Get-Content -LiteralPath (Join-Path $ProjectRoot "TerrainTools.csproj") -Raw) -match 'LogicalName="TerrainTools\.Translations\.Russian\.json"') "translations are not embedded with stable resource names"
 Assert-True ($allSourceText -notmatch "HarmonyPatch\(typeof\(Player\),\s*nameof\(Player\.Update\)\)") "Player.Update Harmony patch returned"
 Assert-True ($pluginSource -match "RadiusModifier\.Tick\(Player\.m_localPlayer\)") "radius polling is not in plugin Update"
 Assert-True ($pluginSource -match "HardnessModifier\.Tick\(Player\.m_localPlayer\)") "hardness polling is not in plugin Update"
@@ -59,6 +61,7 @@ Assert-True ($preciseSource -notmatch "ClutterSystem\.instance\.ResetGrass\(pos,
 Assert-True ($radiusSource -match "RemoveModificationsOverlayVisualizer") "reset tool cannot use the radius modifier"
 Assert-True ($radiusSource -match "delta = Mathf\.Sign\(delta\)") "reset radius is not quantized to terrain cells"
 Assert-True ($radiusSource -match "resetVisualizer\.SetScale\(lastGhostScale\)") "reset frame and cross do not scale together"
+Assert-True ($toolVisualizersSource -match 'class RemoveModificationsOverlayVisualizer[\s\S]*?primary\.StartSize = 2\.0f \* scale\.x;[\s\S]*?secondary\.StartSize = 1\.5f \* scale\.x;') "reset preview does not resize emitted particles"
 Assert-True ($radiusSource -match "SelectRadiusTool\(terrainOp\)[\s\S]*?activeRadiusTool == terrainOp[\s\S]*?lastTotalDelta = 0f") "radius state leaks between selected terrain tools"
 Assert-True ($radiusSource -match "resetTerrainOp\.m_settings\.m_levelRadius = lastModdedRadius") "reset operation radius is not updated with its preview"
 Assert-True ($pluginSource -match '"HardnessScrollScale",\s*1f') "hardness scroll still uses the slow legacy default"

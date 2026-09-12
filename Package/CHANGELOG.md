@@ -5,6 +5,15 @@
 			<th align="center">Notes</th>
 		</tr>
 		<tr>
+			<td align="center">1.4.6</td>
+			<td align="left">
+				<ul>
+					<li>Embedded and explicitly registered English and Russian translations so localization works when a mod manager flattens package folders.</li>
+					<li>Made the terrain-restoration preview circle and center marker follow the selected radius immediately.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
 			<td align="center">1.4.5</td>
 			<td align="left">
 				<ul>
