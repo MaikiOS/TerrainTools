@@ -61,15 +61,19 @@ namespace TerrainTools.Visualization
         {
             base.Initialize();
             Freeze(secondary);
+            Freeze(tertiary);
             VisualizeRecoloringBounds(secondary);
+            VisualizeRecoloringBounds(tertiary);
+            tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
         protected override void OnRefresh()
         {
-            SnapToPaintGrid(secondary);
+            SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
             primary.Enabled = false;
             secondary.Enabled = true;
+            tertiary.Enabled = true;
         }
     }
 
@@ -79,15 +83,19 @@ namespace TerrainTools.Visualization
         {
             base.Initialize();
             Freeze(secondary);
+            Freeze(tertiary);
             VisualizeRecoloringBounds(secondary);
+            VisualizeRecoloringBounds(tertiary);
+            tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
         protected override void OnRefresh()
         {
-            SnapToPaintGrid(secondary);
+            SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
             primary.Enabled = false;
             secondary.Enabled = true;
+            tertiary.Enabled = true;
             hoverInfo.Color = secondary.Color;
         }
     }

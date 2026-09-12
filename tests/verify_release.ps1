@@ -63,7 +63,9 @@ Assert-True ($overlayVisualizerSource -match "Heightmap\.FindHeightmap\([\s\S]*?
 Assert-True ($overlayVisualizerSource -match "size\.x / maxSize" -and $overlayVisualizerSource -match "size\.y / maxSize") "paint preview loses rectangular bounds at zone edges"
 Assert-True ($preciseSource -match "HarmonyPatch\(typeof\(TerrainOp\.Settings\), nameof\(TerrainOp\.Settings\.GetRadius\)\)") "precision radius fix does not patch the Settings method used by terrain operations"
 Assert-True ($preciseSource -match "__instance\.m_paintCleared && IsPrecisionModifier\(__instance\.m_paintRadius\)") "paint-only operations still collapse to radius zero"
-Assert-True (([regex]::Matches($toolVisualizersSource, "SnapToPaintGrid\(secondary\)")).Count -ge 2) "square paint previews are not snapped to the paint-mask grid"
+Assert-True (([regex]::Matches($toolVisualizersSource, "SnapToPaintGrid\(secondary, tertiary\)")).Count -ge 2) "square paint previews do not include core and feather bounds"
+Assert-True ($overlayVisualizerSource -match "TexelScale\(heightmap\.m_width, heightmap\.m_scale\) \* 0\.5f") "paint feather does not follow the rendered texel size"
+Assert-True (([regex]::Matches($toolVisualizersSource, "tertiary\.StartColor = new Color\(1f, 1f, 1f, 0\.3f\)")).Count -ge 2) "paint feather is not visually distinguished"
 
 $mathType = Add-Type -TypeDefinition $paintGridMathSource -PassThru
 $getAxisBounds = $mathType.GetMethod("TryGetAxisBounds", [Reflection.BindingFlags] "Static,NonPublic")

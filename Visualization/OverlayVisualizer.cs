@@ -72,7 +72,7 @@ namespace TerrainTools.Visualization {
             overlay.LocalPosition = VerticalOffset;
         }
 
-        protected void SnapToPaintGrid(Overlay overlay) {
+        protected void SnapToPaintGrid(Overlay core, Overlay feather) {
             paintHeightmaps.Clear();
             Heightmap.FindHeightmap(
                 transform.position,
@@ -80,12 +80,14 @@ namespace TerrainTools.Visualization {
                 paintHeightmaps
             );
             if (paintHeightmaps.Count == 0) {
-                overlay.LocalPosition = VerticalOffset;
+                core.LocalPosition = VerticalOffset;
+                feather.LocalPosition = VerticalOffset;
                 return;
             }
 
             var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
             var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            var featherWidth = 0f;
             foreach (var heightmap in paintHeightmaps) {
                 if (!PreciseTerrainModifier.TryGetPaintMaskWorldBounds(
                     heightmap,
@@ -98,13 +100,23 @@ namespace TerrainTools.Visualization {
                 }
                 min = Vector2.Min(min, zoneMin);
                 max = Vector2.Max(max, zoneMax);
+                featherWidth = Mathf.Max(
+                    featherWidth,
+                    PaintGridMath.TexelScale(heightmap.m_width, heightmap.m_scale) * 0.5f
+                );
             }
 
             if (float.IsPositiveInfinity(min.x)) {
-                overlay.LocalPosition = VerticalOffset;
+                core.LocalPosition = VerticalOffset;
+                feather.LocalPosition = VerticalOffset;
                 return;
             }
 
+            SetPaintBounds(core, min, max);
+            SetPaintBounds(feather, min - Vector2.one * featherWidth, max + Vector2.one * featherWidth);
+        }
+
+        private void SetPaintBounds(Overlay overlay, Vector2 min, Vector2 max) {
             var size = max - min;
             var maxSize = Mathf.Max(size.x, size.y);
             overlay.StartSize = maxSize;

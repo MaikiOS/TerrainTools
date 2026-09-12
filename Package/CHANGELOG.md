@@ -10,6 +10,7 @@
 				<ul>
 					<li>Unified square paint writes and previews around one paint-mask bounds calculation.</li>
 					<li>Aligned the preview with Valheim's rendered 65x65 mask spacing and included its bilinear transition area.</li>
+					<li>Added a translucent outer frame to distinguish the texture-filtering feather from the paint core.</li>
 					<li>Fixed precision operations reporting a zero effective radius after applying their sentinel.</li>
 				</ul>
 			</td>
