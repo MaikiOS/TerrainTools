@@ -9,26 +9,16 @@ namespace TerrainTools.Visualization
         protected override void Initialize()
         {
             base.Initialize();
-            Freeze(primary);
             Freeze(secondary);
-            Freeze(tertiary);
-            VisualizeRecoloringBounds(primary);
             VisualizeTerraformingBounds(secondary);
-            VisualizeRecoloringBounds(tertiary);
-            secondary.StartColor = new Color(1f, 0.85f, 0.1f, 0.8f);
-            tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
         protected override void OnRefresh()
         {
             base.OnRefresh();
+            primary.Enabled = false;
             secondary.Enabled = SnapToHeightGrid(secondary);
-            primary.Enabled = HasPaintOperation();
-            tertiary.Enabled = primary.Enabled;
-            if (primary.Enabled)
-            {
-                SnapToPaintGrid(primary, tertiary);
-            }
+            tertiary.Enabled = false;
         }
     }
 
@@ -77,13 +67,10 @@ namespace TerrainTools.Visualization
         protected override void Initialize()
         {
             base.Initialize();
-            Freeze(primary);
             Freeze(secondary);
             Freeze(tertiary);
-            VisualizeTerraformingBounds(primary);
             VisualizeRecoloringBounds(secondary);
             VisualizeRecoloringBounds(tertiary);
-            primary.StartColor = new Color(1f, 0.85f, 0.1f, 0.8f);
             tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
@@ -91,7 +78,7 @@ namespace TerrainTools.Visualization
         {
             SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
-            primary.Enabled = SnapToHeightGrid(primary);
+            primary.Enabled = false;
             secondary.Enabled = true;
             tertiary.Enabled = true;
         }
@@ -102,13 +89,10 @@ namespace TerrainTools.Visualization
         protected override void Initialize()
         {
             base.Initialize();
-            Freeze(primary);
             Freeze(secondary);
             Freeze(tertiary);
-            VisualizeTerraformingBounds(primary);
             VisualizeRecoloringBounds(secondary);
             VisualizeRecoloringBounds(tertiary);
-            primary.StartColor = new Color(1f, 0.85f, 0.1f, 0.8f);
             tertiary.StartColor = new Color(1f, 1f, 1f, 0.3f);
         }
 
@@ -116,7 +100,7 @@ namespace TerrainTools.Visualization
         {
             SnapToPaintGrid(secondary, tertiary);
             base.OnRefresh();
-            primary.Enabled = SnapToHeightGrid(primary);
+            primary.Enabled = false;
             secondary.Enabled = true;
             tertiary.Enabled = true;
             hoverInfo.Color = secondary.Color;

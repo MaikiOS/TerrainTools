@@ -72,11 +72,6 @@ namespace TerrainTools.Visualization {
             overlay.LocalPosition = VerticalOffset;
         }
 
-        protected bool HasPaintOperation() {
-            var terrainOp = GetComponent<TerrainOp>();
-            return terrainOp && terrainOp.m_settings.m_paintCleared;
-        }
-
         protected bool SnapToHeightGrid(Overlay overlay) {
             var terrainOp = GetComponent<TerrainOp>();
             if (!terrainOp) {

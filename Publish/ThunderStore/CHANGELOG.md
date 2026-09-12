@@ -11,8 +11,8 @@
 					<li>Unified square paint writes and previews around one paint-mask bounds calculation.</li>
 					<li>Aligned the preview with Valheim's rendered 65x65 mask spacing and included its bilinear transition area.</li>
 					<li>Added a translucent outer frame to distinguish the texture-filtering feather from the paint core.</li>
-					<li>Separated mixed square-tool previews into a yellow height-grid selection and white paint core/feather frames.</li>
-					<li>Aligned height selections across Heightmap boundaries and added the shared paint-grid preview to square vegetation restoration.</li>
+					<li>Aligned level and raise previews to the height grid across Heightmap boundaries without cluttering them with extra paint frames.</li>
+					<li>Added the shared paint-grid preview to square vegetation restoration.</li>
 					<li>Fixed precision operations reporting a zero effective radius after applying their sentinel.</li>
 				</ul>
 			</td>
