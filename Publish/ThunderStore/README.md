@@ -5,7 +5,14 @@ Quality of life building mod that improves how terrain manipulation with the hoe
 
 This GPLv3 compatibility fork is based on Searica's AdvancedTerrainModifiers 1.4.1 (`e773c62`). Ostrix maintains the compatibility release. It avoids the EpicLoot 0.13.x `Player.Update` Harmony conflict and keeps custom terrain operations multiplayer-safe even when the installed Jotunn build lacks custom `TerrainOp` registration. Credit for the original mod and gameplay features belongs to Searica. Do not report fork-specific issues to the original author.
 
-Version 1.4.4 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/<Language>/translations.json`. Runtime compatibility must still be smoke-tested after each Valheim release.
+Version 1.4.5 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/<Language>/translations.json`. Runtime compatibility must still be smoke-tested after each Valheim release.
+
+## Version 1.4.5
+
+- Uses one shared paint-mask bounds calculation for both square terrain painting and its preview.
+- Aligns the preview to Valheim's rendered 65x65 paint-mask texels instead of the mismatched one-metre vertex-grid inverse.
+- Includes the visible bilinear transition in the preview size; mip filtering can still soften the edge at distance.
+- Prevents precision paint, raise and smooth operations from reporting a zero effective radius after their sentinel is applied.
 
 ## Version 1.4.4
 

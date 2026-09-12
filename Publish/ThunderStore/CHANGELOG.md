@@ -5,6 +5,16 @@
 			<th align="center">Notes</th>
 		</tr>
 		<tr>
+			<td align="center">1.4.5</td>
+			<td align="left">
+				<ul>
+					<li>Unified square paint writes and previews around one paint-mask bounds calculation.</li>
+					<li>Aligned the preview with Valheim's rendered 65x65 mask spacing and included its bilinear transition area.</li>
+					<li>Fixed precision operations reporting a zero effective radius after applying their sentinel.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
 			<td align="center">1.4.4</td>
 			<td align="left">
 				<ul>

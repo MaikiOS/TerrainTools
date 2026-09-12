@@ -1,6 +1,9 @@
 ﻿using HarmonyLib;
 using UnityEngine;
 
+using TerrainTools.Helpers;
+using System.Collections.Generic;
+
 namespace TerrainTools.Visualization {
     // Helper classes for OverlayVisualizerImpls, intended to abstract away necessary low level complexity.
     public abstract class OverlayVisualizer : MonoBehaviour {
@@ -8,6 +11,7 @@ namespace TerrainTools.Visualization {
         protected Overlay secondary;
         protected Overlay tertiary;
         protected HoverInfo hoverInfo;
+        private readonly List<Heightmap> paintHeightmaps = new();
 
         internal static readonly Vector3 VerticalOffset = new(0, 0.075f, 0);
 
@@ -69,19 +73,46 @@ namespace TerrainTools.Visualization {
         }
 
         protected void SnapToPaintGrid(Overlay overlay) {
-            var heightmap = Heightmap.FindHeightmap(transform.position);
-            if (!heightmap) {
+            paintHeightmaps.Clear();
+            Heightmap.FindHeightmap(
+                transform.position,
+                PreciseTerrainModifier.FixedPaintRadius,
+                paintHeightmaps
+            );
+            if (paintHeightmaps.Count == 0) {
                 overlay.LocalPosition = VerticalOffset;
                 return;
             }
 
-            heightmap.WorldToVertexMask(transform.position, out var xPos, out var yPos);
-            var first = heightmap.VertexMaskToWorld(xPos, yPos);
-            var last = heightmap.VertexMaskToWorld(xPos + 2, yPos + 2);
+            var min = new Vector2(float.PositiveInfinity, float.PositiveInfinity);
+            var max = new Vector2(float.NegativeInfinity, float.NegativeInfinity);
+            foreach (var heightmap in paintHeightmaps) {
+                if (!PreciseTerrainModifier.TryGetPaintMaskWorldBounds(
+                    heightmap,
+                    transform.position,
+                    PreciseTerrainModifier.FixedPaintRadius,
+                    out var zoneMin,
+                    out var zoneMax
+                )) {
+                    continue;
+                }
+                min = Vector2.Min(min, zoneMin);
+                max = Vector2.Max(max, zoneMax);
+            }
+
+            if (float.IsPositiveInfinity(min.x)) {
+                overlay.LocalPosition = VerticalOffset;
+                return;
+            }
+
+            var size = max - min;
+            var maxSize = Mathf.Max(size.x, size.y);
+            overlay.StartSize = maxSize;
+            overlay.LocalScale = new Vector3(size.x / maxSize, 1f, size.y / maxSize);
             overlay.Position = new Vector3(
-                (first.x + last.x) * 0.5f,
+                (min.x + max.x) * 0.5f,
                 transform.position.y + VerticalOffset.y,
-                (first.z + last.z) * 0.5f
+                (min.y + max.y) * 0.5f
             );
         }
 

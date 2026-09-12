@@ -74,6 +74,16 @@ namespace TerrainTools.Helpers {
             }
         }
 
+        [HarmonyPostfix]
+        [HarmonyPatch(typeof(TerrainOp.Settings), nameof(TerrainOp.Settings.GetRadius))]
+        private static void GetSettingsRadiusPostfix(TerrainOp.Settings __instance, ref float __result) {
+            if ((__instance.m_raise && IsPrecisionModifier(__instance.m_raiseRadius))
+                || (__instance.m_smooth && IsPrecisionModifier(__instance.m_smoothRadius))
+                || (__instance.m_paintCleared && IsPrecisionModifier(__instance.m_paintRadius))) {
+                __result = Mathf.Max(__result, FixedRadius);
+            }
+        }
+
         private static void RemoveLegacyTerrainModifiers(Vector3 position, float radius) {
             var modifiers = new List<TerrainModifier>();
             TerrainModifier.GetModifiers(position, radius + 1f, modifiers);
@@ -342,15 +352,18 @@ namespace TerrainTools.Helpers {
             int radius = FixedPaintRadius
         ) {
             Log.LogInfo("[INIT] PreciseRecolorTerrain", LogLevel.Medium);
-            var worldSize = comp.m_width + 1;
-
-            comp.m_hmap.WorldToVertexMask(worldPos, out int xPos, out int yPos);
             var tileColor = ResolveColor(paintType);
 
-            FindExtrema(xPos, worldSize, radius, out var xMin, out var xMax);
-            FindExtrema(yPos, worldSize, radius, out var yMin, out var yMax);
-            var xStart = xPos <= 0 ? xMin : xMin + 1;
-            var yStart = yPos <= 0 ? yMin : yMin + 1;
+            GetPaintMaskBounds(
+                comp.m_hmap,
+                worldPos,
+                radius,
+                out var xStart,
+                out var xMax,
+                out var yStart,
+                out var yMax
+            );
+            var worldSize = comp.m_width + 1;
 
             for (var i = xStart; i <= xMax; i++) {
                 for (var j = yStart; j <= yMax; j++)
@@ -367,6 +380,74 @@ namespace TerrainTools.Helpers {
                 }
             }
             Log.LogInfo("[SUCCESS] Color Terrain Modification", LogLevel.Medium);
+        }
+
+        public static void GetPaintMaskBounds(
+            Heightmap heightmap,
+            Vector3 worldPos,
+            int radius,
+            out int xStart,
+            out int xMax,
+            out int yStart,
+            out int yMax
+        ) {
+            var worldSize = heightmap.m_width + 1;
+            heightmap.WorldToVertexMask(worldPos, out var xPos, out var yPos);
+
+            FindExtrema(xPos, worldSize, radius, out var xMin, out xMax);
+            FindExtrema(yPos, worldSize, radius, out var yMin, out yMax);
+
+            // Mask index zero is the duplicated west/south border. Everywhere
+            // else precision paint starts at the selected cell, not its neighbour.
+            xStart = xPos <= 0 ? xMin : xMin + 1;
+            yStart = yPos <= 0 ? yMin : yMin + 1;
+        }
+
+        public static bool TryGetPaintMaskWorldBounds(
+            Heightmap heightmap,
+            Vector3 worldPos,
+            int radius,
+            out Vector2 min,
+            out Vector2 max
+        ) {
+            GetPaintMaskBounds(
+                heightmap,
+                worldPos,
+                radius,
+                out var xStart,
+                out var xMax,
+                out var yStart,
+                out var yMax
+            );
+
+            var hasX = PaintGridMath.TryGetAxisBounds(
+                heightmap.m_width,
+                heightmap.m_scale,
+                heightmap.transform.position.x,
+                xStart,
+                xMax,
+                out var minX,
+                out var maxX
+            );
+            var hasZ = PaintGridMath.TryGetAxisBounds(
+                heightmap.m_width,
+                heightmap.m_scale,
+                heightmap.transform.position.z,
+                yStart,
+                yMax,
+                out var minZ,
+                out var maxZ
+            );
+
+            if (!hasX || !hasZ) {
+                min = default;
+                max = default;
+                return false;
+            }
+
+            min = new Vector2(minX, minZ);
+            max = new Vector2(maxX, maxZ);
+            return true;
         }
 
         public static UnityEngine.Color ResolveColor(TerrainModifier.PaintType paintType) {

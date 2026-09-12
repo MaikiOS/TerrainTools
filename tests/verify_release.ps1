@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "1.4.4"
+$expectedVersion = "1.4.5"
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "VERIFY FAILED: $Message" }
@@ -19,6 +19,7 @@ $shovelSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\Shovel
 $overlaySource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\Overlay.cs") -Raw
 $overlayVisualizerSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\OverlayVisualizer.cs") -Raw
 $toolVisualizersSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Visualization\ToolVisualizers.cs") -Raw
+$paintGridMathSource = Get-Content -LiteralPath (Join-Path $ProjectRoot "Helpers\PaintGridMath.cs") -Raw
 $allSource = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -Filter "*.cs" |
     Where-Object FullName -NotMatch "[\\/](bin|obj)[\\/]" |
     ForEach-Object { Get-Content -LiteralPath $_.FullName -Raw }
@@ -54,8 +55,36 @@ Assert-True ($shovelSource -match "UseCategories = false") "single-action shovel
 Assert-True ($overlaySource -match "psm = ps\.main") "Overlay MainModule is not initialized"
 Assert-True ($overlaySource -match "public float StartSpeed[\s\S]*?psm\.startSpeed\.constant") "Overlay StartSpeed getter is incorrect"
 Assert-True ($overlaySource -match "psMain\.startColor = value") "Overlay StartColor setter is ineffective"
-Assert-True ($overlayVisualizerSource -match "VertexMaskToWorld\(xPos \+ 2, yPos \+ 2\)") "paint preview is not centered between the actual paint-mask cell boundaries"
+Assert-True (([regex]::Matches($preciseSource, "GetPaintMaskBounds\(")).Count -ge 3) "paint write and preview do not share one mask-bounds calculation"
+Assert-True ($paintGridMathSource -match "terrainWidth \* vertexScale / \(terrainWidth \+ 1f\)") "paint preview does not use the rendered 65x65 mask spacing"
+Assert-True ($overlayVisualizerSource -match "TryGetPaintMaskWorldBounds") "paint preview does not use the shared render-grid geometry"
+Assert-True ($overlayVisualizerSource -notmatch "VertexMaskToWorld") "paint preview still uses the mismatched vanilla vertex-grid inverse"
+Assert-True ($overlayVisualizerSource -match "Heightmap\.FindHeightmap\([\s\S]*?paintHeightmaps") "paint preview does not include every affected Heightmap"
+Assert-True ($overlayVisualizerSource -match "size\.x / maxSize" -and $overlayVisualizerSource -match "size\.y / maxSize") "paint preview loses rectangular bounds at zone edges"
+Assert-True ($preciseSource -match "HarmonyPatch\(typeof\(TerrainOp\.Settings\), nameof\(TerrainOp\.Settings\.GetRadius\)\)") "precision radius fix does not patch the Settings method used by terrain operations"
+Assert-True ($preciseSource -match "__instance\.m_paintCleared && IsPrecisionModifier\(__instance\.m_paintRadius\)") "paint-only operations still collapse to radius zero"
 Assert-True (([regex]::Matches($toolVisualizersSource, "SnapToPaintGrid\(secondary\)")).Count -ge 2) "square paint previews are not snapped to the paint-mask grid"
+
+$mathType = Add-Type -TypeDefinition $paintGridMathSource -PassThru
+$getAxisBounds = $mathType.GetMethod("TryGetAxisBounds", [Reflection.BindingFlags] "Static,NonPublic")
+function Get-AxisBounds([float]$ZoneCenter, [int]$First, [int]$Last) {
+    $arguments = [object[]] @(64, [float] 1, $ZoneCenter, $First, $Last, [float] 0, [float] 0)
+    $valid = [bool] $getAxisBounds.Invoke($null, $arguments)
+    return @($valid, [float] $arguments[5], [float] $arguments[6])
+}
+
+$centerBounds = Get-AxisBounds 0 32 33
+Assert-True $centerBounds[0] "central paint bounds are invalid"
+Assert-True ([Math]::Abs((($centerBounds[1] + $centerBounds[2]) * 0.5) - 0.49230769230769234) -lt 1e-6) "paint preview center regression"
+Assert-True ([Math]::Abs(($centerBounds[2] - $centerBounds[1]) - 2.953846153846154) -lt 1e-6) "two-cell bilinear support regression"
+
+$westZoneBounds = Get-AxisBounds 0 64 64
+$eastZoneBounds = Get-AxisBounds 64 0 1
+$zoneUnionWidth = [Math]::Max($westZoneBounds[2], $eastZoneBounds[2]) - [Math]::Min($westZoneBounds[1], $eastZoneBounds[1])
+Assert-True ([Math]::Abs($zoneUnionWidth - 3.9384615384615387) -lt 1e-5) "paint preview does not cover both sides of a Heightmap boundary"
+
+$emptyBounds = Get-AxisBounds 0 65 64
+Assert-True (-not $emptyBounds[0]) "empty neighboring Heightmap bounds are treated as painted"
 
 foreach ($manifestPath in @("Package\manifest.json", "Publish\ThunderStore\manifest.json")) {
     $manifest = Get-Content -LiteralPath (Join-Path $ProjectRoot $manifestPath) -Raw | ConvertFrom-Json
@@ -63,6 +92,8 @@ foreach ($manifestPath in @("Package\manifest.json", "Publish\ThunderStore\manif
     Assert-True ($manifest.dependencies -contains "ValheimModding-Jotunn-2.30.0") "$manifestPath does not require Jotunn 2.30.0"
 }
 
+$dllPath = Join-Path $ProjectRoot "bin\Release\net48\TerrainTools.dll"
+Assert-True (Test-Path -LiteralPath $dllPath) "release DLL is missing"
 $zipPath = Join-Path $ProjectRoot "Publish\ThunderStore\TerrainTools.zip"
 Assert-True (Test-Path -LiteralPath $zipPath) "Thunderstore ZIP is missing"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -81,6 +112,17 @@ try {
         Assert-True ($zipEntries -contains $requiredEntry) "Thunderstore ZIP is missing $requiredEntry"
     }
     Assert-True (-not ($zipEntries | Where-Object { $_ -like "*.zip" })) "Thunderstore ZIP contains a nested archive"
+    $zipDll = $zip.Entries | Where-Object FullName -eq "TerrainTools.dll"
+    $zipDllStream = $zipDll.Open()
+    $sha256 = [Security.Cryptography.SHA256]::Create()
+    try {
+        $zipDllHash = [BitConverter]::ToString($sha256.ComputeHash($zipDllStream)).Replace("-", "")
+    }
+    finally {
+        $sha256.Dispose()
+        $zipDllStream.Dispose()
+    }
+    Assert-True ($zipDllHash -eq (Get-FileHash -LiteralPath $dllPath -Algorithm SHA256).Hash) "Thunderstore ZIP contains a stale DLL"
 }
 finally {
     $zip.Dispose()
@@ -99,8 +141,6 @@ foreach ($language in @("English", "Russian")) {
     Assert-True ($translations.Count -eq $tokens.Count) "$language translation contains unused keys"
 }
 
-$dllPath = Join-Path $ProjectRoot "bin\Release\net48\TerrainTools.dll"
-Assert-True (Test-Path -LiteralPath $dllPath) "release DLL is missing"
 $cecilPath = Join-Path $BepInExPath "core\Mono.Cecil.dll"
 Add-Type -Path $cecilPath
 $assembly = [Mono.Cecil.AssemblyDefinition]::ReadAssembly($dllPath)
@@ -117,6 +157,7 @@ try {
     $preciseType = $assembly.MainModule.Types | Where-Object FullName -eq "TerrainTools.Helpers.PreciseTerrainModifier"
     Assert-True ($preciseType.Methods.Name -contains "SerializeSettingsPostfix") "compiled settings serializer patch is missing"
     Assert-True ($preciseType.Methods.Name -contains "DeserializeSettingsPostfix") "compiled settings deserializer patch is missing"
+    Assert-True ($preciseType.Methods.Name -contains "GetSettingsRadiusPostfix") "compiled precision Settings.GetRadius patch is missing"
 }
 finally {
     $assembly.Dispose()
