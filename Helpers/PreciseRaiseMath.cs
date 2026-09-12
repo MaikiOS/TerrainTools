@@ -2,8 +2,8 @@ using System;
 
 namespace TerrainTools.Helpers {
     internal static class PreciseRaiseMath {
-        internal const int ModifiedRadius = 2;
-        internal const int InfluenceRadius = 3;
+        internal const int ModifiedRadius = 1;
+        internal const int InfluenceRadius = 2;
         internal const float MinPower = 0.05f;
         internal const float MaxPower = 1f;
 
@@ -36,8 +36,5 @@ namespace TerrainTools.Helpers {
             return ModifiedRadius * hardness;
         }
 
-        internal static int TopVertexRadius(float power) {
-            return (int) Math.Floor(SlopePivot(power) + 0.0001f);
-        }
     }
 }

@@ -112,8 +112,8 @@ namespace TerrainTools.Visualization {
                 return;
             }
 
-            SetBounds(core, min, max);
-            SetBounds(feather, min - Vector2.one * featherWidth, max + Vector2.one * featherWidth);
+            SetBounds(core, min - Vector2.one * featherWidth, max + Vector2.one * featherWidth);
+            SetBounds(feather, min - Vector2.one * featherWidth * 2f, max + Vector2.one * featherWidth * 2f);
         }
 
         private void SetBounds(Overlay overlay, Vector2 min, Vector2 max) {

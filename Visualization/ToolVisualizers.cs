@@ -45,9 +45,8 @@ namespace TerrainTools.Visualization
             var vertexScale = heightmap ? heightmap.m_scale : 1f;
             var terrainOp = GetComponent<TerrainOp>();
             var raisePower = HardnessModifier.CurrentRaisePower(terrainOp.m_settings.m_raisePower);
-            var topRadius = PreciseRaiseMath.TopVertexRadius(raisePower);
-            // Valheim's one-metre terrain vertices only permit point, 2m and 4m flat tops.
-            secondary.StartSize = Mathf.Max(0.1f, 2f * topRadius * vertexScale);
+            var slopePivot = PreciseRaiseMath.SlopePivot(raisePower);
+            secondary.StartSize = Mathf.Max(0.1f, 2f * slopePivot * vertexScale);
             tertiary.StartSize = 2f * PreciseRaiseMath.InfluenceRadius * vertexScale;
 
             base.OnRefresh();
