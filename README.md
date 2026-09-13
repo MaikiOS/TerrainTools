@@ -1,4 +1,7 @@
 # AdvancedTerrainModifiers
+
+[Roadmap](ROADMAP.md) | [Дорожная карта](ROADMAP_RU.md)
+
 Quality of life building mod that improves how terrain manipulation with the hoe and cultivator works and adds new terrain manipulation tools.
 
 **Server-Side Info**: This mod does work as a client-side only mod and only needs to be installed on the server if you wish to enforce configuration settings.
@@ -298,6 +301,8 @@ Source code is available on Github.
 If you would like to provide suggestions, make feature requests, or reports bugs and compatibility issues you can either open an issue on the Github repository or tag me (@searica) with a message on my discord [Searica's Mods](https://discord.gg/sFmGTBYN6n).
 
 I'm a grad student and have a lot of personal responsibilities on top of that so I can't promise I will respond quickly, but I do intend to maintain and improve the mod in my free time.
+
+Report compatibility-fork issues to the maintained fork, not to the original package author. The bilingual [roadmap](ROADMAP.md) lists the current priorities, research topics and tasks that are open to contributors.
 
 ### Credits
 This mod was inspired by and is based on OCDHeim by javadevils as well as HoeRadius by aedenthorn.
