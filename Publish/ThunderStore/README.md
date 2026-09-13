@@ -3,9 +3,17 @@ Quality of life building mod that improves how terrain manipulation with the hoe
 
 > Install this package **instead of** `Searica-AdvancedTerrainModifiers`. Do not load both packages: this compatibility build intentionally keeps the original BepInEx plugin GUID so existing configuration and multiplayer checks continue to work.
 
-This GPLv3 compatibility fork is based on Searica's AdvancedTerrainModifiers 1.4.1 (`e773c62`). Ostrix maintains the compatibility release. It avoids the EpicLoot 0.13.x `Player.Update` Harmony conflict and keeps custom terrain operations multiplayer-safe even when the installed Jotunn build lacks custom `TerrainOp` registration. Credit for the original mod and gameplay features belongs to Searica. Do not report fork-specific issues to the original author.
+This GPLv3 compatibility fork is based on Searica's AdvancedTerrainModifiers 1.4.1 (`e773c62`). Ostrix maintains the compatibility release. It avoids the EpicLoot 0.13.x `Player.Update` Harmony conflict and restores custom terrain-operation synchronization when the installed Jotunn build lacks custom `TerrainOp` registration. Credit for the original mod and gameplay features belongs to Searica. Do not report fork-specific issues to the original author.
 
-Version 1.4.7 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/<Language>/translations.json`. Runtime compatibility must still be smoke-tested after each Valheim release.
+Version 1.4.8 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English and Russian gameplay text can be edited in `Translations/TerrainTools/<Language>/translations.json`; external keys override the embedded defaults. If you edited the old path, move those files manually. Runtime compatibility must still be smoke-tested after each Valheim release.
+
+## Version 1.4.8
+
+- Refreshes projected terrain previews only after Valheim finishes positioning the placement ghost, removing the one-frame race that could make the gizmo jitter or jump after opening the inventory.
+- Restricts custom terrain RPC data and ownership claims to operations managed by this mod; malformed radii, powers and deltas are rejected instead of being applied.
+- Runs terrain reset only for the dedicated reset tool and skips player structures, non-player legacy modifiers and protected areas.
+- Makes the camera-scroll transpiler fail safely if a future Valheim update changes its target IL.
+- Loads editable translations from a TerrainTools-owned path, avoiding collisions in flattened mod-manager installs while retaining embedded English and Russian defaults.
 
 ## Version 1.4.7
 
@@ -38,6 +46,8 @@ Version 1.4.7 targets Valheim 1.0, BepInEx 5.4.2350 and Jotunn 2.30.0. English a
 - Updates the package for BepInEx 5.4.2350 and Jotunn 2.30.0.
 
 **Server-Side Info**: This mod does work as a client-side only mod and only needs to be installed on the server if you wish to enforce configuration settings.
+
+**Security note**: Ward checks are applied to the full local brush footprint, but this does not turn Valheim's client-owned terrain RPCs into server-authoritative validation. Treat untrusted or modified clients as outside the supported security model.
 
 **Terrain paint note**: Valheim stores terrain paint on a coarse interpolated mask. The visible edge can therefore extend slightly beyond a square preview. The same behavior was reproduced with PlanBuild's terrain-paint tool and is treated as a current engine limitation rather than a different operation area in this mod.
 

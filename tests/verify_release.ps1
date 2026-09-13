@@ -4,7 +4,7 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
-$expectedVersion = "1.4.7"
+$expectedVersion = "1.4.8"
 
 function Assert-True([bool]$Condition, [string]$Message) {
     if (-not $Condition) { throw "VERIFY FAILED: $Message" }
@@ -34,7 +34,7 @@ $allSource = Get-ChildItem -LiteralPath $ProjectRoot -Recurse -Filter "*.cs" |
 $allSourceText = $allSource -join "`n"
 
 Assert-True ($pluginSource -match "PluginVersion = `"$([regex]::Escape($expectedVersion))`"") "plugin version is not $expectedVersion"
-Assert-True ($pluginSource -match 'GetLocalization\(\)' -and $pluginSource -match 'TerrainTools\.Translations\.English\.json' -and $pluginSource -match 'TerrainTools\.Translations\.Russian\.json') "embedded translations are not registered explicitly"
+Assert-True ($pluginSource -match 'GetLocalization\(\)' -and $pluginSource -match 'TerrainTools\.Translations\.\{language\}\.json' -and $pluginSource -match 'new\[\] \{ "English", "Russian" \}') "embedded translations are not registered explicitly"
 Assert-True ((Get-Content -LiteralPath (Join-Path $ProjectRoot "TerrainTools.csproj") -Raw) -match 'LogicalName="TerrainTools\.Translations\.English\.json"' -and (Get-Content -LiteralPath (Join-Path $ProjectRoot "TerrainTools.csproj") -Raw) -match 'LogicalName="TerrainTools\.Translations\.Russian\.json"') "translations are not embedded with stable resource names"
 Assert-True ($allSourceText -notmatch "HarmonyPatch\(typeof\(Player\),\s*nameof\(Player\.Update\)\)") "Player.Update Harmony patch returned"
 Assert-True ($pluginSource -match "RadiusModifier\.Tick\(Player\.m_localPlayer\)") "radius polling is not in plugin Update"
@@ -42,9 +42,18 @@ Assert-True ($pluginSource -match "HardnessModifier\.Tick\(Player\.m_localPlayer
 Assert-True ($initSource -match "EnsureTerrainOpRegistered\(prefab\)") "TerrainOp fallback is not called"
 Assert-True ($initSource -match "m_terrainOpsByHash\.TryGetValue") "TerrainOp fallback is not idempotent"
 Assert-True ($initSource -match "registeredTerrainOp != terrainOp") "TerrainOp hash collisions are not guarded"
+Assert-True ($initSource -match "IsCustomTool\(GameObject gameObject\)" -and $initSource -match "ToolConfigs\.ToolConfigsMap\.ContainsKey") "spawned custom tools cannot restore their runtime settings identity"
 Assert-True ($initSource -match "ObjectDBUpdateRegistersPostfix") "TerrainOp fallback is not restored after ObjectDB refresh"
 Assert-True ($preciseSource -match "SerializeSettingsPostfix") "runtime TerrainOp settings are not serialized"
 Assert-True ($preciseSource -match "DeserializeSettingsPostfix") "runtime TerrainOp settings are not deserialized"
+Assert-True ($preciseSource -match "class RuntimeSettings" -and $preciseSource -match "modifier is RuntimeSettings \{ IsReset: true \}") "foreign empty terrain operations can trigger reset"
+Assert-True ($preciseSource -match "__instance is not RuntimeSettings settings" -and $preciseSource -match "InitManager\.IsCustomTool\(modifier\.gameObject\)" -and $preciseSource -match "if \(settings == null\) return true") "serialization or ownership claims are not scoped to managed operations"
+Assert-True ($preciseSource -match "if \(!IsValid\(settings\)\)[\s\S]*?__result = null" -and $preciseSource -match "float\.IsNaN" -and $preciseSource -match "float\.IsInfinity") "network terrain settings are not rejected at the trust boundary"
+Assert-True ($preciseSource -match "pkg\.Size\(\) - payloadStart < payloadSize[\s\S]*?__result = null") "recognized truncated network settings can fall back to a destructive prefab default"
+Assert-True ($preciseSource -match "PrivateArea\.CheckAccess\(position, radius, flash, true\)") "terrain operations do not check their full protected-area footprint"
+Assert-True ($preciseSource -match "settings\?\.HasOverlay == true \|\| settings\?\.IsReset == true" -and $preciseSource -match "radius \*= 1\.414214f") "square precision tools do not use a conservative ward envelope"
+Assert-True ($preciseSource -match "m_playerModifiction" -and $preciseSource -match "modifier\.m_nview\.IsValid\(\)") "legacy reset is not limited to valid player terrain modifiers"
+Assert-True ($preciseSource -match "Mathf\.Abs\(modifier\.transform\.position\.x - position\.x\) \+ modifierRadius > radius" -and $preciseSource -match "Mathf\.Abs\(modifier\.transform\.position\.z - position\.z\) \+ modifierRadius > radius") "reset can delete a legacy modifier that extends beyond its selected square"
 Assert-True ($preciseSource -match "FixedPaintRadius = 1") "square paint does not retain its 2m core"
 Assert-True ($preciseSource -notmatch "worldPos\.(x|z)\s*-=\s*0\.5f") "paint still applies the obsolete half-cell offset"
 Assert-True ($preciseSource -match "m_modifiedPaint\[tileIndex\]\s*=\s*true") "paint reset is not persisted explicitly"
@@ -60,12 +69,16 @@ Assert-True ($preciseSource -match "PaintType\.Reset, radius: radius") "reset ra
 Assert-True ($preciseSource -notmatch "ClutterSystem\.instance\.ResetGrass\(pos, radius\)") "reset still clears vegetation across the whole selected area"
 Assert-True ($radiusSource -match "RemoveModificationsOverlayVisualizer") "reset tool cannot use the radius modifier"
 Assert-True ($radiusSource -match "delta = Mathf\.Sign\(delta\)") "reset radius is not quantized to terrain cells"
+Assert-True ($radiusSource -match "isResetTool \? PreciseTerrainModifier\.FixedRadius : MinRadius") "reset radius can fall below its valid minimum"
 Assert-True ($radiusSource -match "resetVisualizer\.SetScale\(lastGhostScale\)") "reset frame and cross do not scale together"
+Assert-True ($playerSource -match "overlay\.Refresh\(\);\s*RadiusModifier\.RefreshGhostScale\(__instance\)") "reset scale is not reapplied after preview initialization"
 Assert-True ($toolVisualizersSource -match 'class RemoveModificationsOverlayVisualizer[\s\S]*?primary\.LocalScale = scale;[\s\S]*?secondary\.LocalScale = scale;') "reset preview scaling is not isolated to its overlay transforms"
 Assert-True ($radiusSource -match "SelectRadiusTool\(terrainOp\)[\s\S]*?activeRadiusTool == terrainOp[\s\S]*?lastTotalDelta = 0f") "radius state leaks between selected terrain tools"
+Assert-True ($radiusSource -match "IsActiveToolInstance\(__instance\)") "stale radius state can modify a different placement ghost"
 Assert-True ($radiusSource -match "resetTerrainOp\.m_settings\.m_levelRadius = lastModdedRadius") "reset operation radius is not updated with its preview"
 Assert-True ($pluginSource -match '"HardnessScrollScale",\s*1f') "hardness scroll still uses the slow legacy default"
 Assert-True ($cameraSource -match "Input\.GetKey\(TerrainTools\.HardnessKey\)") "hardness key does not block camera zoom"
+Assert-True ($cameraSource -match "matches\.Count != 1" -and $cameraSource -match "return original") "camera transpiler does not fail safely on changed IL"
 Assert-True ($shovelSource -match "UseCategories = false") "single-action shovel still uses hammer categories"
 Assert-True ($overlaySource -match "psm = ps\.main") "Overlay MainModule is not initialized"
 Assert-True ($overlaySource -match "public float StartSpeed[\s\S]*?psm\.startSpeed\.constant") "Overlay StartSpeed getter is incorrect"
@@ -109,10 +122,15 @@ Assert-True ($hardnessSource -match "SelectRaiseTool\(selectedTerrainOp && selec
 Assert-True ($hardnessSource -notmatch "lastDisplayedRaiseHardness = -1;[\s\S]{0,120}SetPower\(__instance, 0\)") "leaving place mode reactivates raise hardness state"
 Assert-True ($hardnessSource -match "CurrentRaisePower\(float defaultPower\)[\s\S]*?RaiseToolIsInUse[\s\S]*?lastModdedRaisePwr") "raise preview cannot read the active slope setting"
 Assert-True ($spinnerSource -match "IsEnableHardnessModifier && Input\.GetKey\(TerrainTools\.HardnessKey\)[\s\S]*?return 0f;[\s\S]*?Input\.GetAxis\(MouseScrollWheel\)") "hardness scroll can still change the height spinner"
+Assert-True ($spinnerSource -match "lastRefreshFrame == Time\.frameCount") "height spinner can consume the same scroll input twice per frame"
+Assert-True ($playerSource -match "HarmonyPostfix" -and $playerSource -match "overlay\.Refresh\(\)") "terrain overlays are not refreshed after final ghost placement"
+Assert-True ($playerSource -match "m_placementGhost\.activeInHierarchy") "inactive placement ghosts can still refresh and consume input"
+Assert-True ($overlayVisualizerSource -notmatch "private void Update\(\)") "terrain overlays still race the placement ghost in MonoBehaviour.Update"
 Assert-True ($iconCacheSource -match "AppDomain\.CurrentDomain\.GetAssemblies") "ImageConversion assembly fallback is missing"
 Assert-True ($packageTargets -match "OutputResources\)\\Translations") "debug translations are not deployed"
 Assert-True ($environmentProps -notmatch "VALHEIM_SERVERR") "dedicated-server property typo returned"
 Assert-True ($preciseSource -match "return radius == float\.NegativeInfinity;" -and $preciseSource -match "SettingsPayloadVersion = 1" -and $preciseSource -match "sizeof\(float\) \* 7") "legacy precision flags or the seven-float settings payload changed"
+Assert-True ($pluginSource -match 'Path\.GetDirectoryName\(Info\.Location\)' -and $pluginSource -match '"Translations",\s*"TerrainTools",\s*language' -and $pluginSource -match 'AddFileByPath\(externalPath, true\)') "external localization path or override precedence is not explicit"
 
 # Native Heightmap IL: height = floor(local / scale + 0.5) + width / 2;
 # mask = floor(local / scale + 0.5 + (width + 1) / 2). Width 64 has half-index 32.
@@ -330,8 +348,8 @@ try {
         "CHANGELOG.md",
         "icon.png",
         "TerrainTools.dll",
-        "Translations/English/translations.json",
-        "Translations/Russian/translations.json"
+        "Translations/TerrainTools/English/translations.json",
+        "Translations/TerrainTools/Russian/translations.json"
     )) {
         Assert-True ($zipEntries -contains $requiredEntry) "Thunderstore ZIP is missing $requiredEntry"
     }
@@ -356,7 +374,8 @@ $tokens = [regex]::Matches($allSourceText, '\$atmc_[a-z0-9_]+') |
     ForEach-Object { $_.Value.TrimStart('$') } |
     Sort-Object -Unique
 foreach ($language in @("English", "Russian")) {
-    $translationPath = Join-Path $ProjectRoot "Package\Translations\$language\translations.json"
+    $translationPath = Join-Path $ProjectRoot "Package\Translations\TerrainTools\$language\translations.json"
+    Assert-True (-not (Test-Path -LiteralPath (Join-Path $ProjectRoot "Package\Translations\$language\translations.json"))) "$language translation still uses the ambiguous legacy path"
     $translations = Get-Content -LiteralPath $translationPath -Raw | ConvertFrom-Json -AsHashtable
     foreach ($token in $tokens) {
         Assert-True ($translations.ContainsKey($token)) "$language translation is missing $token"

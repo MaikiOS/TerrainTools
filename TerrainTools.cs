@@ -9,6 +9,7 @@ using Jotunn.Managers;
 using Jotunn.Utils;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using TerrainTools.Configs;
 using TerrainTools.Extensions;
@@ -24,7 +25,7 @@ namespace TerrainTools {
         internal const string Author = "Searica";
         public const string PluginName = "AdvancedTerrainModifiers";
         public const string PluginGUID = $"{Author}.Valheim.TerrainTools";
-        public const string PluginVersion = "1.4.7";
+        public const string PluginVersion = "1.4.8";
 
         #region Section Names
 
@@ -142,8 +143,33 @@ namespace TerrainTools {
         private void RegisterTranslations() {
             var localization = LocalizationManager.Instance.GetLocalization();
             Assembly assembly = Assembly.GetExecutingAssembly();
-            localization.AddJsonFile("English", AssetUtils.LoadTextFromResources("TerrainTools.Translations.English.json", assembly));
-            localization.AddJsonFile("Russian", AssetUtils.LoadTextFromResources("TerrainTools.Translations.Russian.json", assembly));
+            var pluginDirectory = Path.GetDirectoryName(Info.Location);
+
+            foreach (var language in new[] { "English", "Russian" }) {
+                localization.AddJsonFile(
+                    language,
+                    AssetUtils.LoadTextFromResources($"TerrainTools.Translations.{language}.json", assembly)
+                );
+
+                if (string.IsNullOrEmpty(pluginDirectory)) {
+                    continue;
+                }
+                var externalPath = Path.Combine(
+                    pluginDirectory,
+                    "Translations",
+                    "TerrainTools",
+                    language,
+                    "translations.json"
+                );
+                try {
+                    if (File.Exists(externalPath)) {
+                        localization.AddFileByPath(externalPath, true);
+                    }
+                }
+                catch (Exception ex) {
+                    Log.LogWarning($"Could not load external {language} translations: {ex.Message}");
+                }
+            }
         }
 
         private void Update() {

@@ -95,6 +95,10 @@ namespace TerrainTools.Helpers {
             var overlay = __instance.gameObject.GetComponent<OverlayVisualizer>();
             if (overlay && overlay is not RaiseGroundOverlayVisualizer) return;
 
+            if (lastTotalRaiseDelta != 0f || lastTotalSmoothDelta != 0f) {
+                PreciseTerrainModifier.EnsureRuntimeSettings(__instance, false, overlay != null);
+            }
+
             if (__instance.m_settings.m_raise) {
                 __instance.m_settings.m_raisePower = ModifyRaisePower(__instance.m_settings.m_raisePower, lastTotalRaiseDelta);
                 Log.LogInfo($"Applying raise Power {__instance.m_settings.m_raisePower}", LogLevel.Medium);

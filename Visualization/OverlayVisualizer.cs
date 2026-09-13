@@ -15,7 +15,7 @@ namespace TerrainTools.Visualization {
 
         internal static readonly Vector3 VerticalOffset = new(0, 0.075f, 0);
 
-        private void Update() {
+        internal void Refresh() {
             if (primary == null) {
                 var primaryTransform = transform.Find("_GhostOnly");
                 var secondaryTransform = Instantiate(primaryTransform, transform);

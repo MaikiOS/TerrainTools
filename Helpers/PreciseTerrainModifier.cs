@@ -12,6 +12,25 @@ namespace TerrainTools.Helpers {
         public const int FixedPaintRadius = 1;
         private const int SettingsPayloadMagic = 0x41544D53; // ATMS
         private const int SettingsPayloadVersion = 1;
+        private const float MinRadius = 0.5f;
+        private const float MaxSmoothPower = 30f;
+
+        internal sealed class RuntimeSettings : TerrainOp.Settings {
+            internal bool IsReset;
+            internal bool HasOverlay;
+        }
+
+        internal static RuntimeSettings EnsureRuntimeSettings(TerrainOp terrainOp, bool isReset = false, bool hasOverlay = false) {
+            if (terrainOp.m_settings is RuntimeSettings settings) {
+                settings.IsReset |= isReset;
+                settings.HasOverlay |= hasOverlay;
+                return settings;
+            }
+
+            settings = CopySettings(terrainOp.m_settings, isReset, hasOverlay);
+            terrainOp.m_settings = settings;
+            return settings;
+        }
 
         /// <summary>
         ///     Checks if radius is set as flag for precision modifier.
@@ -42,28 +61,63 @@ namespace TerrainTools.Helpers {
 
         [HarmonyPrefix]
         [HarmonyPatch(typeof(TerrainComp), nameof(TerrainComp.ApplyOperation))]
-        private static void ApplyOperationPrefix(TerrainComp __instance, TerrainOp modifier) {
-            if (!modifier || !modifier.gameObject) { return; }
+        private static bool ApplyOperationPrefix(TerrainComp __instance, TerrainOp modifier) {
+            if (!modifier || !modifier.gameObject) {
+                return true;
+            }
+
+            var overlay = modifier.gameObject.GetComponentInChildren<OverlayVisualizer>();
+            var settings = modifier.m_settings as RuntimeSettings;
+            if (settings == null && (overlay || InitManager.IsCustomTool(modifier.gameObject))) {
+                settings = EnsureRuntimeSettings(
+                    modifier,
+                    overlay is RemoveModificationsOverlayVisualizer,
+                    overlay != null
+                );
+            }
+            if (settings == null) return true;
+
+            if (!HasAreaAccess(modifier, modifier.transform.position, false)) {
+                Log.LogWarning("Blocked a terrain operation whose brush intersects a protected area");
+                return false;
+            }
 
             // Valheim 1.0 resolves TerrainOp settings on the owner. Claim before
             // sending so the process with this compatibility patch applies them.
-            if (__instance && __instance.m_nview && !__instance.m_nview.IsOwner()) {
+            if (__instance && __instance.m_nview && __instance.m_nview.IsValid() && !__instance.m_nview.IsOwner()) {
                 __instance.m_nview.ClaimOwnership();
             }
 
             // Set radius to -inf so I can check if custom overlay in later methods
-            if (modifier.gameObject.GetComponentInChildren<OverlayVisualizer>()) {
-                if (modifier.m_settings.m_smooth) {
-                    modifier.m_settings.m_smoothRadius = float.NegativeInfinity;
+            if (settings.HasOverlay) {
+                if (settings.m_smooth) {
+                    settings.m_smoothRadius = float.NegativeInfinity;
                 }
-                if (modifier.m_settings.m_raise && modifier.m_settings.m_raiseDelta >= 0) {
-                    modifier.m_settings.m_raiseRadius = float.NegativeInfinity;
-                    modifier.m_settings.m_raiseDelta = GroundLevelSpinner.Value;
+                if (settings.m_raise && settings.m_raiseDelta >= 0) {
+                    settings.m_raiseRadius = float.NegativeInfinity;
+                    settings.m_raiseDelta = GroundLevelSpinner.Value;
                 }
-                if (modifier.m_settings.m_paintCleared) {
-                    modifier.m_settings.m_paintRadius = float.NegativeInfinity;
+                if (settings.m_paintCleared) {
+                    settings.m_paintRadius = float.NegativeInfinity;
                 }
             }
+            return true;
+        }
+
+        internal static bool HasAreaAccess(TerrainOp modifier, Vector3 position, bool flash) {
+            if (!Player.m_localPlayer || !modifier) {
+                return true;
+            }
+
+            var radius = modifier.GetRadius();
+            if (!IsFinite(radius) || radius < 0f) {
+                return false;
+            }
+            var settings = modifier.m_settings as RuntimeSettings;
+            if (modifier.m_settings.m_square || settings?.HasOverlay == true || settings?.IsReset == true) {
+                radius *= 1.414214f;
+            }
+            return PrivateArea.CheckAccess(position, radius, flash, true);
         }
 
         [HarmonyPostfix]
@@ -97,13 +151,21 @@ namespace TerrainTools.Helpers {
             var modifiers = new List<TerrainModifier>();
             TerrainModifier.GetModifiers(position, radius + 1f, modifiers);
             foreach (var modifier in modifiers) {
+                var modifierRadius = modifier ? modifier.GetRadius() : 0f;
                 if (!modifier || !modifier.m_nview
+                    || !modifier.m_nview.IsValid()
+                    || !modifier.m_playerModifiction
                     || modifier.GetComponentInParent<Piece>()
-                    || modifier.GetComponentInParent<WearNTear>()) {
+                    || modifier.GetComponentInParent<WearNTear>()
+                    || Mathf.Abs(modifier.transform.position.x - position.x) + modifierRadius > radius
+                    || Mathf.Abs(modifier.transform.position.z - position.z) + modifierRadius > radius
+                    || (Player.m_localPlayer && !PrivateArea.CheckAccess(modifier.transform.position, modifierRadius, false, true))) {
                     continue;
                 }
                 modifier.m_nview.ClaimOwnership();
-                ZNetScene.instance.Destroy(modifier.gameObject);
+                if (ZNetScene.instance) {
+                    ZNetScene.instance.Destroy(modifier.gameObject);
+                }
             }
         }
 
@@ -114,36 +176,44 @@ namespace TerrainTools.Helpers {
         [HarmonyPostfix]
         [HarmonyPatch(typeof(TerrainOp.Settings), nameof(TerrainOp.Settings.Serialize))]
         private static void SerializeSettingsPostfix(TerrainOp.Settings __instance, ZPackage pkg) {
-            if (__instance == null || pkg == null) {
+            if (__instance is not RuntimeSettings settings || pkg == null) {
                 return;
             }
 
             pkg.Write(SettingsPayloadMagic);
             pkg.Write(SettingsPayloadVersion);
-            pkg.Write(__instance.m_levelRadius);
-            pkg.Write(__instance.m_raiseRadius);
-            pkg.Write(__instance.m_raisePower);
-            pkg.Write(__instance.m_raiseDelta);
-            pkg.Write(__instance.m_smoothRadius);
-            pkg.Write(__instance.m_smoothPower);
-            pkg.Write(__instance.m_paintRadius);
+            pkg.Write(settings.m_levelRadius);
+            pkg.Write(settings.m_raiseRadius);
+            pkg.Write(settings.m_raisePower);
+            pkg.Write(settings.m_raiseDelta);
+            pkg.Write(settings.m_smoothRadius);
+            pkg.Write(settings.m_smoothPower);
+            pkg.Write(settings.m_paintRadius);
         }
 
         [HarmonyPostfix]
         [HarmonyPatch(typeof(TerrainOp.Settings), nameof(TerrainOp.Settings.Deserialize))]
         private static void DeserializeSettingsPostfix(ZPackage pkg, ref TerrainOp.Settings __result) {
             const int payloadSize = sizeof(int) * 2 + sizeof(float) * 7;
-            if (__result == null || pkg == null || pkg.Size() - pkg.GetPos() < payloadSize) {
+            if (__result == null || pkg == null || pkg.Size() - pkg.GetPos() < sizeof(int)) {
                 return;
             }
 
             var payloadStart = pkg.GetPos();
-            if (pkg.ReadInt() != SettingsPayloadMagic || pkg.ReadInt() != SettingsPayloadVersion) {
+            if (pkg.ReadInt() != SettingsPayloadMagic) {
                 pkg.SetPos(payloadStart);
                 return;
             }
+            if (pkg.Size() - payloadStart < payloadSize || pkg.ReadInt() != SettingsPayloadVersion) {
+                Log.LogWarning("Rejected incomplete or unsupported terrain-operation settings");
+                __result = null;
+                return;
+            }
 
-            var settings = CopySettings(__result);
+            var source = __result as RuntimeSettings;
+            var isReset = source?.IsReset ?? false;
+            var hasOverlay = source?.HasOverlay ?? false;
+            var settings = CopySettings(__result, isReset, hasOverlay);
             settings.m_levelRadius = pkg.ReadSingle();
             settings.m_raiseRadius = pkg.ReadSingle();
             settings.m_raisePower = pkg.ReadSingle();
@@ -151,11 +221,18 @@ namespace TerrainTools.Helpers {
             settings.m_smoothRadius = pkg.ReadSingle();
             settings.m_smoothPower = pkg.ReadSingle();
             settings.m_paintRadius = pkg.ReadSingle();
+            if (!IsValid(settings)) {
+                Log.LogWarning("Rejected invalid network terrain-operation settings");
+                __result = null;
+                return;
+            }
             __result = settings;
         }
 
-        private static TerrainOp.Settings CopySettings(TerrainOp.Settings source) {
-            return new TerrainOp.Settings {
+        private static RuntimeSettings CopySettings(TerrainOp.Settings source, bool isReset, bool hasOverlay) {
+            return new RuntimeSettings {
+                IsReset = isReset,
+                HasOverlay = hasOverlay,
                 m_levelOffset = source.m_levelOffset,
                 m_level = source.m_level,
                 m_levelRadius = source.m_levelRadius,
@@ -183,6 +260,29 @@ namespace TerrainTools.Helpers {
             };
         }
 
+        private static bool IsValid(RuntimeSettings settings) {
+            if (!IsRadius(settings.m_levelRadius, settings.IsReset ? FixedRadius : MinRadius)) return false;
+            if (settings.m_raise && !IsPrecisionRadius(settings.m_raiseRadius, settings.HasOverlay)) return false;
+            if (settings.m_smooth && !IsPrecisionRadius(settings.m_smoothRadius, settings.HasOverlay)) return false;
+            if (settings.m_paintCleared && !IsPrecisionRadius(settings.m_paintRadius, settings.HasOverlay)) return false;
+            if (settings.m_raise && (!IsFinite(settings.m_raisePower) || settings.m_raisePower < PreciseRaiseMath.MinPower || settings.m_raisePower > PreciseRaiseMath.MaxPower)) return false;
+            if (settings.m_raise && (!IsFinite(settings.m_raiseDelta) || settings.m_raiseDelta < -1f || settings.m_raiseDelta > 1f)) return false;
+            if (settings.m_smooth && (!IsFinite(settings.m_smoothPower) || settings.m_smoothPower < 1f || settings.m_smoothPower > MaxSmoothPower)) return false;
+            return true;
+        }
+
+        private static bool IsPrecisionRadius(float value, bool allowPrecision) {
+            return (allowPrecision && IsPrecisionModifier(value)) || IsRadius(value, MinRadius);
+        }
+
+        private static bool IsRadius(float value, float minimum) {
+            return IsFinite(value) && value >= minimum && value <= TerrainTools.MaxRadius;
+        }
+
+        private static bool IsFinite(float value) {
+            return !float.IsNaN(value) && !float.IsInfinity(value);
+        }
+
         /// <summary>
         ///     Apply TerrainReset operation if valid
         /// </summary>
@@ -191,17 +291,18 @@ namespace TerrainTools.Helpers {
         /// <param name="modifier"></param>
         [HarmonyPrefix]
         [HarmonyPatch(typeof(TerrainComp), nameof(TerrainComp.InternalDoOperation))]
-        private static void InternalDoOperationPrefix(
+        private static bool InternalDoOperationPrefix(
             TerrainComp __instance,
             Vector3 pos,
             TerrainOp.Settings modifier
         ) {
-            if (!modifier.m_level && !modifier.m_raise && !modifier.m_smooth && !modifier.m_paintCleared) {
+            if (modifier is RuntimeSettings { IsReset: true }) {
                 var radius = Mathf.Clamp(Mathf.RoundToInt(modifier.m_levelRadius), FixedRadius, Mathf.CeilToInt(TerrainTools.MaxRadius));
                 RemoveLegacyTerrainModifiers(pos, radius);
                 RemoveTerrainModifications(__instance, pos, radius);
                 PreciseRecolorTerrain(__instance, pos, TerrainModifier.PaintType.Reset, radius: radius);
             }
+            return true;
         }
 
         /// <summary>

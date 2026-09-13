@@ -5,6 +5,18 @@
 			<th align="center">Notes</th>
 		</tr>
 		<tr>
+			<td align="center">1.4.8</td>
+			<td align="left">
+				<ul>
+					<li>Removed the one-frame placement-preview race that could make terrain gizmos jitter or jump after opening the inventory.</li>
+					<li>Scoped custom terrain RPC data and ownership claims to managed operations and rejected malformed numeric payloads.</li>
+					<li>Restricted destructive reset behavior to its dedicated tool and added full-footprint protected-area checks.</li>
+					<li>Made the camera-scroll patch fail safely when Valheim's target IL changes.</li>
+					<li>Moved editable translations to an explicitly loaded TerrainTools-owned path for nested and flattened installs.</li>
+				</ul>
+			</td>
+		</tr>
+		<tr>
 			<td align="center">1.4.7</td>
 			<td align="left">
 				<ul>

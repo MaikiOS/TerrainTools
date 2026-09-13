@@ -6,6 +6,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using TerrainTools.Configs;
+using TerrainTools.Visualization;
 using UnityEngine;
 using static UnityEngine.GridBrushBase;
 
@@ -13,6 +14,10 @@ namespace TerrainTools.Helpers {
     internal static class InitManager {
         private static bool HasInitialized = false;
         private static bool HasLoggedTerrainOpFallback = false;
+
+        internal static bool IsCustomTool(GameObject gameObject) {
+            return gameObject && ToolConfigs.ToolConfigsMap.ContainsKey(gameObject.name.Replace("(Clone)", ""));
+        }
         internal static readonly Dictionary<string, GameObject> ToolRefs = new();
 
         /// <summary>
@@ -198,7 +203,12 @@ namespace TerrainTools.Helpers {
             }
 
             // customize terrain op component
-            var settings = toolPrefab.GetComponent<TerrainOp>().m_settings;
+            var terrainOp = toolPrefab.GetComponent<TerrainOp>();
+            var settings = PreciseTerrainModifier.EnsureRuntimeSettings(
+                terrainOp,
+                toolDB.overlayType == typeof(RemoveModificationsOverlayVisualizer),
+                toolDB.overlayType != null
+            );
             settings.m_level = UpdateValueIfNeeded(settings.m_level, toolDB.level);
             settings.m_levelRadius = UpdateValueIfNeeded(settings.m_levelRadius, toolDB.levelRadius);
 
