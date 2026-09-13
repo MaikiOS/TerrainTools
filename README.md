@@ -1,4 +1,7 @@
 # AdvancedTerrainModifiers Compatible
+
+[Roadmap](ROADMAP.md) | [Дорожная карта](ROADMAP_RU.md)
+
 Quality of life building mod that improves how terrain manipulation with the hoe and cultivator works and adds new terrain manipulation tools.
 
 > Install this package **instead of** `Searica-AdvancedTerrainModifiers`. Do not load both packages: this compatibility build intentionally keeps the original BepInEx plugin GUID so existing configuration and multiplayer checks continue to work.
@@ -343,7 +346,7 @@ Source code is available on Github.
 | Original project | <img height="18" src="https://github.githubassets.com/favicons/favicon-dark.svg"></img> [searica/TerrainTools](https://github.com/searica/TerrainTools) |
 
 ### Contributions
-Report compatibility-fork issues to the maintained fork, not to the original package author.
+Report compatibility-fork issues to the maintained fork, not to the original package author. The bilingual [roadmap](ROADMAP.md) lists the current priorities, research topics and tasks that are open to contributors.
 
 ### Credits
 This mod was inspired by and is based on OCDHeim by javadevils as well as HoeRadius by aedenthorn.
